@@ -1,14 +1,15 @@
 export const TIMELINE_CATEGORIES = [
-  { name: "出生", icon: "誕" },
-  { name: "入学", icon: "学" },
-  { name: "卒業", icon: "卒" },
-  { name: "就職", icon: "職" },
-  { name: "結婚", icon: "結" },
-  { name: "引越し", icon: "住" },
-  { name: "旅行", icon: "旅" },
-  { name: "記念日", icon: "祝" },
-  { name: "逝去", icon: "弔" },
-  { name: "その他", icon: "記" },
+  { name: "出生", icon: "baby" },
+  { name: "入学", icon: "school" },
+  { name: "卒業", icon: "graduation" },
+  { name: "就職", icon: "briefcase" },
+  { name: "結婚", icon: "heart" },
+  { name: "引越し", icon: "home" },
+  { name: "旅行", icon: "plane" },
+  { name: "記念日", icon: "party" },
+  { name: "逝去", icon: "flower" },
+  { name: "ペット", icon: "paw" },
+  { name: "その他", icon: "more" },
 ] as const;
 
 export const CALENDAR_CATEGORIES = [
@@ -28,6 +29,7 @@ export type TimelineEvent = {
   dateDay: number | null;
   datePrecision: string;
   category: string;
+  location: string;
   description: string;
   coverPhotoKey: string | null;
   coverPhotoName: string | null;

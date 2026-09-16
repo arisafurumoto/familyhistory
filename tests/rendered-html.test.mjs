@@ -33,3 +33,16 @@ test("removes starter preview references", async () => {
     access(new URL("app/_sites-preview/SkeletonPreview.tsx", templateRoot)),
   );
 });
+
+test("keeps timeline location and pet category support", async () => {
+  const [familyShared, schema, app] = await Promise.all([
+    readFile(new URL("../app/family-shared.ts", import.meta.url), "utf8"),
+    readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/FamilyApp.tsx", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(familyShared, /ペット/);
+  assert.match(familyShared, /location: string/);
+  assert.match(schema, /text\("location"\)\.notNull\(\)\.default\(""\)/);
+  assert.match(app, /TimelineEventDetailPanel/);
+});

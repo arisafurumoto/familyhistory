@@ -1,5 +1,19 @@
 "use client";
 
+import {
+  Baby,
+  Briefcase,
+  CircleEllipsis,
+  Flower,
+  GraduationCap,
+  Heart,
+  Home,
+  PawPrint,
+  PartyPopper,
+  Plane,
+  School,
+  type LucideIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import type {
@@ -47,6 +61,24 @@ type FamilyTreeLayout = {
 };
 
 type RelationshipSentenceRole = "parent" | "child" | "spouse";
+type TimelineCategoryDefinition = (typeof TIMELINE_CATEGORIES)[number];
+
+const timelineIconComponents: Record<
+  TimelineCategoryDefinition["icon"],
+  LucideIcon
+> = {
+  baby: Baby,
+  briefcase: Briefcase,
+  flower: Flower,
+  graduation: GraduationCap,
+  heart: Heart,
+  home: Home,
+  more: CircleEllipsis,
+  party: PartyPopper,
+  paw: PawPrint,
+  plane: Plane,
+  school: School,
+};
 
 export function FamilyApp({ activeView, initialData }: FamilyAppProps) {
   const [data, setData] = useState(initialData);
@@ -141,161 +173,330 @@ function TimelineSection({
   isSaving: boolean;
   onSubmit: (form: HTMLFormElement, doneMessage: string) => Promise<boolean>;
 }) {
-  const [editing, setEditing] = useState<TimelineEvent | null>(null);
+  const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
+  const timelineYears = useMemo(
+    () => groupTimelineEventsByYear(data.timelineEvents),
+    [data.timelineEvents],
+  );
+  const selectedEvent =
+    data.timelineEvents.find((event) => event.id === selectedEventId) ?? null;
 
   return (
-    <section className="section-grid timeline-layout">
-      <div className="panel form-panel">
-        <div className="section-heading">
-          <span className="section-kicker">年表</span>
-          <h1>{editing ? "年表を編集" : "年表に追加"}</h1>
-        </div>
-        <form
-          key={editing?.id ?? "new-timeline"}
-          className="entry-form"
-          onSubmit={async (event) => {
-            event.preventDefault();
-            const saved = await onSubmit(event.currentTarget, "年表を保存しました。");
-            if (saved) setEditing(null);
-          }}
-        >
-          <input name="action" type="hidden" value="saveTimeline" />
-          {editing ? <input name="id" type="hidden" value={editing.id} /> : null}
-          <label>
-            <span>タイトル</span>
-            <input
-              defaultValue={editing?.title ?? ""}
-              name="title"
-              required
-              type="text"
-            />
-          </label>
-          <fieldset className="date-fields">
-            <legend>日付</legend>
-            <input
-              defaultValue={editing?.dateYear ?? ""}
-              inputMode="numeric"
-              name="dateYear"
-              placeholder="年"
-              required
-              type="number"
-            />
-            <input
-              defaultValue={editing?.dateMonth ?? ""}
-              inputMode="numeric"
-              max="12"
-              min="1"
-              name="dateMonth"
-              placeholder="月"
-              type="number"
-            />
-            <input
-              defaultValue={editing?.dateDay ?? ""}
-              inputMode="numeric"
-              max="31"
-              min="1"
-              name="dateDay"
-              placeholder="日"
-              type="number"
-            />
-          </fieldset>
-          <label>
-            <span>カテゴリー</span>
-            <select defaultValue={editing?.category ?? "出生"} name="category">
-              {TIMELINE_CATEGORIES.map((category) => (
-                <option key={category.name} value={category.name}>
-                  {category.icon} {category.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span>説明</span>
-            <textarea
-              defaultValue={editing?.description ?? ""}
-              name="description"
-              rows={5}
-            />
-          </label>
-          <label>
-            <span>カバー写真</span>
-            <input accept="image/*" name="coverPhoto" type="file" />
-          </label>
-          <div className="form-actions">
-            {editing ? (
-              <button className="ghost-button" onClick={() => setEditing(null)} type="button">
-                取消
-              </button>
-            ) : null}
-            <button className="primary-button" disabled={isSaving} type="submit">
-              {editing ? "更新" : "登録"}
-            </button>
-          </div>
-        </form>
+    <section className="timeline-page">
+      <div className="section-heading wide-heading">
+        <span className="section-kicker">年表</span>
+        <h1>家族の出来事を見る</h1>
       </div>
 
-      <div className="timeline-list" aria-label="年表一覧">
-        {data.timelineEvents.length === 0 ? (
-          <EmptyState title="年表はまだ登録されていません" />
-        ) : (
-          data.timelineEvents.map((timelineEvent) => {
-            const category = TIMELINE_CATEGORIES.find(
-              (item) => item.name === timelineEvent.category,
-            );
-            return (
-              <article className="timeline-item" key={timelineEvent.id}>
-                <div className="timeline-date">{formatPartialDate(timelineEvent)}</div>
-                <div className="timeline-card">
-                  {timelineEvent.coverPhotoKey ? (
-                    <img
-                      alt={timelineEvent.coverPhotoName ?? timelineEvent.title}
-                      className="timeline-photo"
-                      src={`/api/photos/${timelineEvent.coverPhotoKey}`}
-                    />
-                  ) : null}
-                  <div className="timeline-body">
-                    <span className="category-badge">
-                      <span>{category?.icon ?? "記"}</span>
-                      {timelineEvent.category}
-                    </span>
-                    <h2>{timelineEvent.title}</h2>
-                    {timelineEvent.description ? <p>{timelineEvent.description}</p> : null}
-                    <div className="item-actions">
-                      <button
-                        className="text-button"
-                        onClick={() => setEditing(timelineEvent)}
-                        type="button"
+      <div className="panel timeline-add-panel">
+        <h2>年表に追加</h2>
+        <TimelineEventForm
+          event={null}
+          isSaving={isSaving}
+          onSubmit={onSubmit}
+          submitLabel="登録"
+        />
+      </div>
+
+      <div
+        className={
+          selectedEvent
+            ? "timeline-workspace has-selection"
+            : "timeline-workspace full-width"
+        }
+      >
+        <div className="timeline-list" aria-label="年表一覧">
+          {timelineYears.length === 0 ? (
+            <EmptyState title="年表はまだ登録されていません" />
+          ) : (
+            timelineYears.map(({ events, year }) => (
+              <section className="timeline-year-group" key={year}>
+                <h2 className="timeline-year-title">{year}年</h2>
+                <div className="timeline-year-events">
+                  {events.map((timelineEvent) => {
+                    const category = timelineCategoryDefinition(
+                      timelineEvent.category,
+                    );
+
+                    return (
+                      <article
+                        className={
+                          selectedEventId === timelineEvent.id
+                            ? "timeline-item selected"
+                            : "timeline-item"
+                        }
+                        key={timelineEvent.id}
                       >
-                        編集
-                      </button>
-                      <form
-                        className="inline-form"
-                        onSubmit={async (event) => {
-                          event.preventDefault();
-                          if (!window.confirm("この年表を削除しますか？")) return;
-                          const deleted = await onSubmit(
-                            event.currentTarget,
-                            "年表を削除しました。",
-                          );
-                          if (deleted && editing?.id === timelineEvent.id) setEditing(null);
-                        }}
-                      >
-                        <input name="action" type="hidden" value="deleteTimeline" />
-                        <input name="id" type="hidden" value={timelineEvent.id} />
-                        <button className="danger-button" disabled={isSaving} type="submit">
-                          削除
+                        <span
+                          aria-label={timelineEvent.category}
+                          className="timeline-category-icon"
+                          title={timelineEvent.category}
+                        >
+                          <TimelineCategoryIcon category={category} />
+                        </span>
+                        <button
+                          aria-pressed={selectedEventId === timelineEvent.id}
+                          className="timeline-title-button"
+                          onClick={() => setSelectedEventId(timelineEvent.id)}
+                          type="button"
+                        >
+                          {timelineEvent.title}
                         </button>
-                      </form>
-                    </div>
-                  </div>
+                      </article>
+                    );
+                  })}
                 </div>
-              </article>
-            );
-          })
-        )}
+              </section>
+            ))
+          )}
+        </div>
+
+        {selectedEvent ? (
+          <TimelineEventDetailPanel
+            event={selectedEvent}
+            isSaving={isSaving}
+            key={selectedEvent.id}
+            onDeleted={() => setSelectedEventId(null)}
+            onSubmit={onSubmit}
+          />
+        ) : null}
       </div>
     </section>
   );
+}
+
+function TimelineEventForm({
+  event,
+  isSaving,
+  onCancel,
+  onSubmit,
+  submitLabel,
+}: {
+  event: TimelineEvent | null;
+  isSaving: boolean;
+  onCancel?: () => void;
+  onSubmit: (form: HTMLFormElement, doneMessage: string) => Promise<boolean>;
+  submitLabel: string;
+}) {
+  return (
+    <form
+      key={event?.id ?? "new-timeline"}
+      className="entry-form timeline-event-form"
+      onSubmit={async (submitEvent) => {
+        submitEvent.preventDefault();
+        const saved = await onSubmit(
+          submitEvent.currentTarget,
+          "年表を保存しました。",
+        );
+        if (saved) onCancel?.();
+      }}
+    >
+      <input name="action" type="hidden" value="saveTimeline" />
+      {event ? <input name="id" type="hidden" value={event.id} /> : null}
+      <label>
+        <span>タイトル</span>
+        <input defaultValue={event?.title ?? ""} name="title" required type="text" />
+      </label>
+      <fieldset className="date-fields">
+        <legend>日付</legend>
+        <input
+          defaultValue={event?.dateYear ?? ""}
+          inputMode="numeric"
+          name="dateYear"
+          placeholder="年"
+          required
+          type="number"
+        />
+        <input
+          defaultValue={event?.dateMonth ?? ""}
+          inputMode="numeric"
+          max="12"
+          min="1"
+          name="dateMonth"
+          placeholder="月"
+          type="number"
+        />
+        <input
+          defaultValue={event?.dateDay ?? ""}
+          inputMode="numeric"
+          max="31"
+          min="1"
+          name="dateDay"
+          placeholder="日"
+          type="number"
+        />
+      </fieldset>
+      <label>
+        <span>カテゴリー</span>
+        <select defaultValue={event?.category ?? "出生"} name="category">
+          {TIMELINE_CATEGORIES.map((category) => (
+            <option key={category.name} value={category.name}>
+              {category.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        <span>場所</span>
+        <input defaultValue={event?.location ?? ""} name="location" type="text" />
+      </label>
+      <label className="timeline-description-field">
+        <span>説明</span>
+        <textarea
+          defaultValue={event?.description ?? ""}
+          name="description"
+          rows={5}
+        />
+      </label>
+      <label>
+        <span>カバー写真</span>
+        <input accept="image/*" name="coverPhoto" type="file" />
+      </label>
+      <div className="form-actions">
+        {event ? (
+          <button className="ghost-button" onClick={onCancel} type="button">
+            取消
+          </button>
+        ) : null}
+        <button className="primary-button" disabled={isSaving} type="submit">
+          {submitLabel}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function TimelineEventDetailPanel({
+  event,
+  isSaving,
+  onDeleted,
+  onSubmit,
+}: {
+  event: TimelineEvent;
+  isSaving: boolean;
+  onDeleted: () => void;
+  onSubmit: (form: HTMLFormElement, doneMessage: string) => Promise<boolean>;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const category = timelineCategoryDefinition(event.category);
+
+  return (
+    <aside className="panel timeline-detail-panel">
+      {isEditing ? (
+        <section className="detail-edit-section">
+          <h2>年表を編集</h2>
+          <TimelineEventForm
+            event={event}
+            isSaving={isSaving}
+            onCancel={() => setIsEditing(false)}
+            onSubmit={onSubmit}
+            submitLabel="保存"
+          />
+        </section>
+      ) : (
+        <>
+          <div className="timeline-detail-header">
+            <span className="category-badge">
+              <TimelineCategoryIcon category={category} />
+              {event.category}
+            </span>
+            <h2>{event.title}</h2>
+          </div>
+
+          {event.coverPhotoKey ? (
+            <img
+              alt={event.coverPhotoName ?? event.title}
+              className="timeline-detail-photo"
+              src={`/api/photos/${event.coverPhotoKey}`}
+            />
+          ) : null}
+
+          <dl className="timeline-detail-meta">
+            <div>
+              <dt>日付</dt>
+              <dd>{formatPartialDate(event)}</dd>
+            </div>
+            <div>
+              <dt>カテゴリー</dt>
+              <dd>{event.category}</dd>
+            </div>
+            <div>
+              <dt>場所</dt>
+              <dd>{event.location || "未登録"}</dd>
+            </div>
+          </dl>
+
+          <section className="timeline-detail-description">
+            <h3>説明</h3>
+            {event.description ? (
+              <p>{event.description}</p>
+            ) : (
+              <p className="muted">説明はまだ登録されていません。</p>
+            )}
+          </section>
+        </>
+      )}
+
+      <div className="timeline-detail-actions">
+        {isEditing ? null : (
+          <button
+            className="primary-button"
+            onClick={() => setIsEditing(true)}
+            type="button"
+          >
+            編集
+          </button>
+        )}
+        <form
+          className="inline-form"
+          onSubmit={async (submitEvent) => {
+            submitEvent.preventDefault();
+            if (!window.confirm("この年表を削除しますか？")) return;
+            const deleted = await onSubmit(
+              submitEvent.currentTarget,
+              "年表を削除しました。",
+            );
+            if (deleted) onDeleted();
+          }}
+        >
+          <input name="action" type="hidden" value="deleteTimeline" />
+          <input name="id" type="hidden" value={event.id} />
+          <button className="danger-button" disabled={isSaving} type="submit">
+            削除
+          </button>
+        </form>
+      </div>
+    </aside>
+  );
+}
+
+function TimelineCategoryIcon({
+  category,
+}: {
+  category: TimelineCategoryDefinition;
+}) {
+  const Icon = timelineIconComponents[category.icon] ?? CircleEllipsis;
+  return <Icon aria-hidden="true" strokeWidth={2.4} />;
+}
+
+function timelineCategoryDefinition(categoryName: string) {
+  return (
+    TIMELINE_CATEGORIES.find((category) => category.name === categoryName) ??
+    TIMELINE_CATEGORIES[TIMELINE_CATEGORIES.length - 1]
+  );
+}
+
+function groupTimelineEventsByYear(events: TimelineEvent[]) {
+  const yearMap = new Map<number, TimelineEvent[]>();
+
+  events.forEach((event) => {
+    yearMap.set(event.dateYear, [...(yearMap.get(event.dateYear) ?? []), event]);
+  });
+
+  return [...yearMap.entries()].map(([year, yearEvents]) => ({
+    events: yearEvents,
+    year,
+  }));
 }
 
 function TreeSection({

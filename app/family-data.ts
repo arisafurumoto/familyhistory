@@ -36,6 +36,7 @@ export async function ensureFamilySchema() {
       date_day INTEGER,
       date_precision TEXT NOT NULL,
       category TEXT NOT NULL,
+      location TEXT NOT NULL DEFAULT '',
       description TEXT NOT NULL DEFAULT '',
       cover_photo_key TEXT,
       cover_photo_name TEXT,
@@ -97,6 +98,7 @@ export async function ensureFamilySchema() {
     d1.prepare("PRAGMA optimize"),
   ]);
 
+  await ensureTimelineEventLocationColumn(d1);
   await ensureFamilyMemberNameColumns(d1);
   schemaReady = true;
 }
@@ -154,6 +156,7 @@ export async function saveTimelineEvent(formData: FormData) {
     dateDay: parsedDate.day ?? undefined,
     datePrecision: parsedDate.precision,
     category: timelineCategory(formData.get("category")),
+    location: plainText(formData.get("location"), 200),
     description: plainText(formData.get("description"), 5000),
     updatedAt: now,
     ...(photo
@@ -211,6 +214,21 @@ export async function saveFamilyMember(formData: FormData) {
   }
 
   await db.insert(familyMembers).values(values);
+}
+
+async function ensureTimelineEventLocationColumn(d1: D1Database) {
+  const tableInfo = await d1.prepare("PRAGMA table_info(timeline_events)").all();
+  const columns = new Set(
+    (tableInfo.results as Array<{ name: string }>).map((column) => column.name),
+  );
+
+  if (!columns.has("location")) {
+    await d1
+      .prepare(
+        "ALTER TABLE timeline_events ADD COLUMN location TEXT NOT NULL DEFAULT ''",
+      )
+      .run();
+  }
 }
 
 async function ensureFamilyMemberNameColumns(d1: D1Database) {

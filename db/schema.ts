@@ -11,6 +11,7 @@ export const timelineEvents = sqliteTable(
     dateDay: integer("date_day"),
     datePrecision: text("date_precision").notNull(),
     category: text("category").notNull(),
+    location: text("location").notNull().default(""),
     description: text("description").notNull().default(""),
     coverPhotoKey: text("cover_photo_key"),
     coverPhotoName: text("cover_photo_name"),
