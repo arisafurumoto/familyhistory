@@ -1,18 +1,19 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f7f7f4;
-  --surface: #ffffff;
-  --surface-muted: #f1f4ef;
-  --foreground: #22231f;
-  --muted: #74786c;
-  --line: #d9ded2;
-  --green: #315f4b;
-  --green-dark: #234737;
-  --red: #8e3f3f;
-  --gold: #ad7d28;
-  --teal: #337781;
-  --shadow: 0 18px 50px rgba(34, 35, 31, 0.08);
+  --background: #f7f3eb;
+  --surface: #fffdf8;
+  --surface-muted: #f2ebdf;
+  --foreground: #23211d;
+  --muted: #756d62;
+  --line: #d9cdbb;
+  --green: #2b2925;
+  --green-dark: #171613;
+  --red: #df7f6c;
+  --gold: #efd98b;
+  --teal: #a95449;
+  --ink-soft: #4a453d;
+  --shadow: 0 12px 28px rgba(35, 33, 29, 0.06);
 }
 
 @theme inline {
@@ -34,6 +35,42 @@ body {
   font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic",
     "Meiryo", system-ui, sans-serif;
   margin: 0;
+}
+
+body::before,
+body::after {
+  align-items: center;
+  display: none;
+  font-weight: 700;
+  justify-content: center;
+  pointer-events: none;
+  position: fixed;
+  top: 110px;
+  width: 54px;
+  z-index: 0;
+}
+
+body::before {
+  background: var(--red);
+  color: #fffaf3;
+  content: "古本家";
+  font-size: 26px;
+  height: 230px;
+  left: 28px;
+  letter-spacing: 0.18em;
+  text-orientation: upright;
+  writing-mode: vertical-rl;
+}
+
+body::after {
+  background: var(--gold);
+  color: var(--green-dark);
+  content: "FURUMOTO FAMILY";
+  font-size: 20px;
+  height: 330px;
+  letter-spacing: 0.18em;
+  right: 28px;
+  writing-mode: vertical-rl;
 }
 
 button,
@@ -63,11 +100,50 @@ img {
 
 .app-shell {
   min-height: 100vh;
+  position: relative;
+  z-index: 1;
+}
+
+.app-shell::before,
+.app-shell::after {
+  background: var(--gold);
+  bottom: 24px;
+  box-shadow:
+    34px 0 0 var(--surface),
+    68px 0 0 var(--gold),
+    0 34px 0 var(--surface),
+    34px 34px 0 var(--red),
+    68px 34px 0 var(--surface),
+    102px 34px 0 var(--gold),
+    0 68px 0 var(--gold),
+    34px 68px 0 var(--surface),
+    68px 68px 0 var(--gold),
+    102px 68px 0 var(--red),
+    34px 102px 0 var(--gold),
+    68px 102px 0 var(--surface),
+    102px 102px 0 var(--gold);
+  content: "";
+  display: none;
+  height: 24px;
+  opacity: 0.7;
+  pointer-events: none;
+  position: fixed;
+  width: 24px;
+  z-index: 0;
+}
+
+.app-shell::before {
+  left: 26px;
+}
+
+.app-shell::after {
+  right: 26px;
+  transform: scaleX(-1);
 }
 
 .topbar {
   align-items: center;
-  background: rgba(255, 255, 255, 0.94);
+  background: rgba(255, 253, 248, 0.94);
   border-bottom: 1px solid var(--line);
   display: grid;
   gap: 16px;
@@ -86,8 +162,8 @@ img {
 
 .brand-mark {
   align-items: center;
-  background: var(--green);
-  border-radius: 8px;
+  background: var(--red);
+  border-radius: 50%;
   color: #fff;
   display: inline-flex;
   font-weight: 800;
@@ -102,8 +178,9 @@ img {
 }
 
 .brand strong {
-  font-size: clamp(17px, 2vw, 21px);
-  letter-spacing: 0;
+  font-family: "Yu Mincho", "Hiragino Mincho ProN", "YuMincho", serif;
+  font-size: clamp(18px, 2vw, 22px);
+  letter-spacing: 0.08em;
 }
 
 .brand small {
@@ -113,7 +190,7 @@ img {
 }
 
 .main-nav {
-  background: var(--surface-muted);
+  background: rgba(239, 217, 139, 0.36);
   border: 1px solid var(--line);
   border-radius: 8px;
   display: inline-flex;
@@ -131,14 +208,16 @@ img {
 
 .main-nav a[aria-current="page"] {
   background: var(--surface);
-  box-shadow: 0 2px 10px rgba(34, 35, 31, 0.08);
-  color: var(--green-dark);
+  box-shadow: 0 1px 0 rgba(35, 33, 29, 0.08);
+  color: var(--red);
 }
 
 .content {
   margin: 0 auto;
   max-width: 1320px;
   padding: 30px clamp(16px, 4vw, 48px) 60px;
+  position: relative;
+  z-index: 2;
 }
 
 .status-message {
@@ -194,6 +273,7 @@ img {
   display: block;
   font-size: 13px;
   font-weight: 800;
+  letter-spacing: 0.16em;
   margin-bottom: 6px;
 }
 
@@ -207,13 +287,17 @@ p {
 }
 
 h1 {
+  font-family: "Yu Mincho", "Hiragino Mincho ProN", "YuMincho", serif;
   font-size: clamp(26px, 4vw, 42px);
+  font-weight: 700;
   line-height: 1.2;
   margin-bottom: 0;
 }
 
 h2 {
+  font-family: "Yu Mincho", "Hiragino Mincho ProN", "YuMincho", serif;
   font-size: 20px;
+  font-weight: 700;
 }
 
 h3 {
@@ -250,8 +334,8 @@ legend {
 input,
 select,
 textarea {
-  background: #fbfcfa;
-  border: 1px solid #cfd6c8;
+  background: #fffaf1;
+  border: 1px solid var(--line);
   border-radius: 8px;
   color: var(--foreground);
   padding: 11px 12px;
@@ -266,8 +350,8 @@ textarea {
 input:focus,
 select:focus,
 textarea:focus {
-  border-color: var(--teal);
-  outline: 3px solid rgba(51, 119, 129, 0.16);
+  border-color: var(--red);
+  outline: 3px solid rgba(223, 127, 108, 0.18);
 }
 
 .date-fields {
@@ -306,14 +390,14 @@ textarea:focus {
 }
 
 .primary-button {
-  background: var(--green);
+  background: var(--red);
   color: #fff;
   min-height: 44px;
   padding: 10px 18px;
 }
 
 .primary-button:hover {
-  background: var(--green-dark);
+  background: #c86d5c;
 }
 
 .primary-button:disabled {
@@ -336,15 +420,15 @@ textarea:focus {
 }
 
 .danger-button {
-  background: #fff1f1;
-  border: 1px solid #ecc4c4;
-  color: #7a2929;
+  background: #fff0eb;
+  border: 1px solid #eab6aa;
+  color: #8c3d34;
   min-height: 40px;
   padding: 8px 14px;
 }
 
 .danger-button:hover {
-  background: #fbe1e1;
+  background: #fbe0d8;
 }
 
 .danger-button:disabled {
@@ -353,7 +437,7 @@ textarea:focus {
 }
 
 .icon-button {
-  background: var(--surface-muted);
+  background: rgba(239, 217, 139, 0.38);
   color: var(--green-dark);
   font-size: 28px;
   height: 40px;
@@ -450,7 +534,7 @@ textarea:focus {
 }
 
 .timeline-list::before {
-  background: var(--line);
+  background: rgba(35, 33, 29, 0.7);
   border-radius: 999px;
   bottom: 8px;
   content: "";
@@ -469,15 +553,16 @@ textarea:focus {
 .timeline-year-title {
   color: var(--green-dark);
   font-size: 26px;
+  font-family: "Yu Mincho", "Hiragino Mincho ProN", "YuMincho", serif;
   margin: 0;
   position: relative;
 }
 
 .timeline-year-title::before {
-  background: var(--gold);
+  background: var(--red);
   border: 4px solid var(--background);
   border-radius: 50%;
-  box-shadow: 0 0 0 2px rgba(173, 125, 40, 0.25);
+  box-shadow: 0 0 0 2px rgba(35, 33, 29, 0.18);
   content: "";
   height: 22px;
   left: -37px;
@@ -507,7 +592,7 @@ textarea:focus {
 
 .timeline-item::before {
   background: var(--surface);
-  border: 3px solid var(--teal);
+  border: 3px solid var(--green-dark);
   border-radius: 50%;
   content: "";
   height: 14px;
@@ -520,7 +605,7 @@ textarea:focus {
 }
 
 .timeline-item::after {
-  background: var(--line);
+  background: rgba(35, 33, 29, 0.58);
   content: "";
   height: 2px;
   left: -20px;
@@ -531,8 +616,8 @@ textarea:focus {
 }
 
 .timeline-item.selected {
-  border-color: var(--teal);
-  box-shadow: 0 0 0 3px rgba(51, 119, 129, 0.16), var(--shadow);
+  border-color: var(--red);
+  box-shadow: 0 0 0 3px rgba(223, 127, 108, 0.18), var(--shadow);
 }
 
 .timeline-item.selected::before {
@@ -541,8 +626,8 @@ textarea:focus {
 
 .timeline-category-icon {
   align-items: center;
-  background: #edf5f1;
-  border: 1px solid #ccded5;
+  background: #fff7df;
+  border: 1px solid #ead99d;
   border-radius: 50%;
   color: var(--red);
   display: inline-flex;
@@ -569,7 +654,7 @@ textarea:focus {
 }
 
 .timeline-title-button:hover {
-  color: var(--teal);
+  color: var(--red);
 }
 
 .timeline-inline-detail {
@@ -632,7 +717,7 @@ textarea:focus {
 }
 
 .timeline-detail-meta div {
-  background: var(--surface-muted);
+  background: #fff8e8;
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 10px 12px;
@@ -646,7 +731,7 @@ textarea:focus {
 }
 
 .timeline-detail-meta dd {
-  color: #4f544a;
+  color: var(--ink-soft);
   font-weight: 800;
   margin: 0;
 }
@@ -663,7 +748,7 @@ textarea:focus {
 .timeline-detail-description p,
 .event-card p,
 .person-card p {
-  color: #4f544a;
+  color: var(--ink-soft);
   line-height: 1.75;
 }
 
@@ -678,8 +763,8 @@ textarea:focus {
 
 .category-badge {
   align-items: center;
-  background: #edf5f1;
-  border: 1px solid #ccded5;
+  background: #fff7df;
+  border: 1px solid #ead99d;
   border-radius: 999px;
   color: var(--green-dark);
   display: inline-flex;
@@ -765,7 +850,7 @@ textarea:focus {
 
 .relationship-sentence {
   align-items: center;
-  background: var(--surface-muted);
+  background: #fff8e8;
   border: 1px solid var(--line);
   border-radius: 8px;
   display: flex;
@@ -794,7 +879,7 @@ textarea:focus {
 
 .relationship-row {
   align-items: center;
-  background: var(--surface-muted);
+  background: #fff8e8;
   border: 1px solid var(--line);
   border-radius: 8px;
   display: grid;
@@ -804,13 +889,13 @@ textarea:focus {
 }
 
 .relationship-row-text {
-  color: #4f544a;
+  color: var(--ink-soft);
   font-weight: 800;
   line-height: 1.55;
 }
 
 .relationship-row.editing {
-  border-color: var(--teal);
+  border-color: var(--red);
 }
 
 .relationship-row strong,
@@ -824,7 +909,7 @@ textarea:focus {
 }
 
 .relationship-row span {
-  color: #4f544a;
+  color: var(--ink-soft);
   line-height: 1.55;
 }
 
@@ -844,7 +929,7 @@ textarea:focus {
 }
 
 .tree-canvas {
-  background: #fbfcfa;
+  background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 8px;
   min-height: 100%;
@@ -866,14 +951,14 @@ textarea:focus {
 }
 
 .tree-link.parent {
-  stroke: rgba(173, 125, 40, 0.78);
-  stroke-width: 2.5;
+  stroke: rgba(23, 22, 19, 0.78);
+  stroke-width: 2.2;
 }
 
 .tree-link.spouse {
-  stroke: rgba(51, 119, 129, 0.78);
-  stroke-dasharray: 8 6;
-  stroke-width: 3;
+  stroke: rgba(23, 22, 19, 0.82);
+  stroke-dasharray: none;
+  stroke-width: 2.4;
 }
 
 .generation-label {
@@ -910,13 +995,13 @@ textarea:focus {
 }
 
 .tree-person-card.selected {
-  border-color: var(--teal);
-  box-shadow: 0 0 0 3px rgba(51, 119, 129, 0.16), var(--shadow);
+  border-color: var(--red);
+  box-shadow: 0 0 0 3px rgba(223, 127, 108, 0.18), var(--shadow);
 }
 
 .person-card img,
 .person-initial {
-  border-radius: 8px;
+  border-radius: 50%;
   height: 58px;
   object-fit: cover;
   width: 58px;
@@ -930,7 +1015,7 @@ textarea:focus {
 
 .person-initial {
   align-items: center;
-  background: #f4ead7;
+  background: #f6df9d;
   color: var(--red);
   display: inline-flex;
   font-size: 22px;
@@ -975,7 +1060,7 @@ textarea:focus {
 }
 
 .tree-person-name:hover {
-  color: var(--teal);
+  color: var(--red);
 }
 
 .tree-person-card p {
@@ -998,10 +1083,10 @@ textarea:focus {
 }
 
 .profile-tags span {
-  background: #fff8e8;
-  border: 1px solid #ecd7a5;
+  background: #fff7df;
+  border: 1px solid #ead99d;
   border-radius: 999px;
-  color: #654a15;
+  color: #6a4d16;
   font-size: 12px;
   font-weight: 800;
   padding: 4px 8px;
@@ -1033,7 +1118,7 @@ textarea:focus {
 
 .person-detail-header img,
 .person-detail-initial {
-  border-radius: 8px;
+  border-radius: 50%;
   height: 92px;
   object-fit: cover;
   width: 92px;
@@ -1041,7 +1126,7 @@ textarea:focus {
 
 .person-detail-initial {
   align-items: center;
-  background: #f4ead7;
+  background: #f6df9d;
   color: var(--red);
   display: inline-flex;
   font-size: 34px;
@@ -1077,7 +1162,7 @@ textarea:focus {
 }
 
 .detail-relationships ul {
-  color: #4f544a;
+  color: var(--ink-soft);
   display: grid;
   gap: 8px;
   line-height: 1.55;
@@ -1087,7 +1172,7 @@ textarea:focus {
 }
 
 .detail-relationships li {
-  background: var(--surface-muted);
+  background: #fff8e8;
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 9px 10px;
@@ -1165,9 +1250,9 @@ textarea:focus {
 
 .empty-state span {
   align-items: center;
-  background: var(--surface-muted);
+  background: #fff7df;
   border-radius: 8px;
-  color: var(--green);
+  color: var(--red);
   display: inline-flex;
   font-size: 28px;
   font-weight: 900;
@@ -1209,6 +1294,18 @@ textarea:focus {
   color: #7a2929;
   margin: 0;
   padding: 10px 12px;
+}
+
+@media (min-width: 1540px) {
+  body::before,
+  body::after {
+    display: flex;
+  }
+
+  .app-shell::before,
+  .app-shell::after {
+    display: block;
+  }
 }
 
 @media (max-width: 980px) {
