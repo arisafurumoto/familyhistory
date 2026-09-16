@@ -45,6 +45,8 @@ type FamilyTreeLayout = {
   width: number;
 };
 
+type RelationshipSentenceRole = "parent" | "child" | "spouse";
+
 export function FamilyApp({ activeView, initialData }: FamilyAppProps) {
   const [data, setData] = useState(initialData);
   const [message, setMessage] = useState("");
@@ -380,56 +382,15 @@ function TreeSection({
           </form>
 
           <h2>{editingRelationship ? "関係を編集" : "関係を追加"}</h2>
-          <form
+          <RelationshipSentenceForm
             key={editingRelationship?.id ?? "new-relationship"}
-            className="entry-form compact-form"
-            onSubmit={async (event) => {
-              event.preventDefault();
-              const saved = await onSubmit(event.currentTarget, "関係を保存しました。");
-              if (saved) setEditingRelationship(null);
-            }}
-          >
-            <input name="action" type="hidden" value="saveRelationship" />
-            {editingRelationship ? (
-              <input name="id" type="hidden" value={editingRelationship.id} />
-            ) : null}
-            <label>
-              <span>関係</span>
-              <select
-                defaultValue={editingRelationship?.relationshipType ?? "parent"}
-                name="relationshipType"
-              >
-                <option value="parent">親子</option>
-                <option value="spouse">配偶者</option>
-              </select>
-            </label>
-            <PersonSelect
-              defaultValue={editingRelationship?.personId ?? ""}
-              label="人物"
-              members={data.familyMembers}
-              name="personId"
-            />
-            <PersonSelect
-              defaultValue={editingRelationship?.relatedPersonId ?? ""}
-              label="相手"
-              members={data.familyMembers}
-              name="relatedPersonId"
-            />
-            <div className="form-actions">
-              {editingRelationship ? (
-                <button
-                  className="ghost-button"
-                  onClick={() => setEditingRelationship(null)}
-                  type="button"
-                >
-                  取消
-                </button>
-              ) : null}
-              <button className="primary-button" disabled={isSaving} type="submit">
-                {editingRelationship ? "更新" : "登録"}
-              </button>
-            </div>
-          </form>
+            editingRelationship={editingRelationship}
+            isSaving={isSaving}
+            members={data.familyMembers}
+            onCancel={() => setEditingRelationship(null)}
+            onSaved={() => setEditingRelationship(null)}
+            onSubmit={onSubmit}
+          />
           <RelationshipList
             editingRelationshipId={editingRelationship?.id ?? null}
             familyMap={familyMap}
@@ -463,6 +424,132 @@ function TreeSection({
       </div>
     </section>
   );
+}
+
+function RelationshipSentenceForm({
+  editingRelationship,
+  isSaving,
+  members,
+  onCancel,
+  onSaved,
+  onSubmit,
+}: {
+  editingRelationship: FamilyRelationship | null;
+  isSaving: boolean;
+  members: FamilyMember[];
+  onCancel: () => void;
+  onSaved: () => void;
+  onSubmit: (form: HTMLFormElement, doneMessage: string) => Promise<boolean>;
+}) {
+  const initialSentence = relationshipSentenceDefaults(editingRelationship);
+  const [firstPersonId, setFirstPersonId] = useState<number | "">(
+    initialSentence.firstPersonId,
+  );
+  const [secondPersonId, setSecondPersonId] = useState<number | "">(
+    initialSentence.secondPersonId,
+  );
+  const [role, setRole] = useState<RelationshipSentenceRole>(initialSentence.role);
+  const relationshipType = role === "spouse" ? "spouse" : "parent";
+  const storedPersonId = role === "child" ? secondPersonId : firstPersonId;
+  const storedRelatedPersonId = role === "child" ? firstPersonId : secondPersonId;
+
+  return (
+    <form
+      className="entry-form compact-form relationship-sentence-form"
+      onSubmit={async (event) => {
+        event.preventDefault();
+        const saved = await onSubmit(event.currentTarget, "関係を保存しました。");
+        if (saved) {
+          setFirstPersonId("");
+          setSecondPersonId("");
+          setRole("parent");
+          onSaved();
+        }
+      }}
+    >
+      <input name="action" type="hidden" value="saveRelationship" />
+      {editingRelationship ? (
+        <input name="id" type="hidden" value={editingRelationship.id} />
+      ) : null}
+      <input name="relationshipType" readOnly type="hidden" value={relationshipType} />
+      <input name="personId" readOnly type="hidden" value={storedPersonId} />
+      <input
+        name="relatedPersonId"
+        readOnly
+        type="hidden"
+        value={storedRelatedPersonId}
+      />
+
+      <div className="relationship-sentence" aria-label="関係">
+        <select
+          aria-label="一人目"
+          onChange={(event) =>
+            setFirstPersonId(event.target.value ? Number(event.target.value) : "")
+          }
+          required
+          value={firstPersonId}
+        >
+          <option value="">人を選択</option>
+          {members.map((person) => (
+            <option key={person.id} value={person.id}>
+              {displayName(person)}
+            </option>
+          ))}
+        </select>
+        <span className="relationship-particle">は</span>
+        <select
+          aria-label="二人目"
+          onChange={(event) =>
+            setSecondPersonId(event.target.value ? Number(event.target.value) : "")
+          }
+          required
+          value={secondPersonId}
+        >
+          <option value="">人を選択</option>
+          {members.map((person) => (
+            <option key={person.id} value={person.id}>
+              {displayName(person)}
+            </option>
+          ))}
+        </select>
+        <span className="relationship-particle">の</span>
+        <select
+          aria-label="関係"
+          onChange={(event) => setRole(event.target.value as RelationshipSentenceRole)}
+          value={role}
+        >
+          <option value="parent">親です</option>
+          <option value="child">子です</option>
+          <option value="spouse">配偶者です</option>
+        </select>
+      </div>
+
+      <div className="form-actions">
+        {editingRelationship ? (
+          <button className="ghost-button" onClick={onCancel} type="button">
+            取消
+          </button>
+        ) : null}
+        <button className="primary-button" disabled={isSaving} type="submit">
+          {editingRelationship ? "更新" : "登録"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function relationshipSentenceDefaults(relationship: FamilyRelationship | null): {
+  firstPersonId: number | "";
+  role: RelationshipSentenceRole;
+  secondPersonId: number | "";
+} {
+  if (!relationship) return { firstPersonId: "", role: "parent", secondPersonId: "" };
+
+  return {
+    firstPersonId: relationship.personId,
+    role: relationship.relationshipType === "spouse" ? "spouse" : "parent",
+    secondPersonId: relationship.relatedPersonId,
+  };
 }
 
 function CalendarSection({
@@ -657,32 +744,6 @@ function DateTriple({
   );
 }
 
-function PersonSelect({
-  defaultValue = "",
-  label,
-  members,
-  name,
-}: {
-  defaultValue?: number | "";
-  label: string;
-  members: FamilyMember[];
-  name: string;
-}) {
-  return (
-    <label>
-      <span>{label}</span>
-      <select defaultValue={defaultValue} name={name} required>
-        <option value="">選択</option>
-        {members.map((person) => (
-          <option key={person.id} value={person.id}>
-            {displayName(person)}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
 function RelationshipList({
   editingRelationshipId,
   familyMap,
@@ -715,8 +776,7 @@ function RelationshipList({
             }
             key={relationship.id}
           >
-            <div>
-              <strong>{relationshipTypeLabel(relationship.relationshipType)}</strong>
+            <div className="relationship-row-text">
               <span>{relationshipSummary(relationship, familyMap)}</span>
             </div>
             <div className="item-actions">
@@ -882,10 +942,6 @@ function TreePersonCard({
   );
 }
 
-function relationshipTypeLabel(type: string) {
-  return type === "spouse" ? "配偶者" : "親子";
-}
-
 function relationshipSummary(
   relationship: FamilyRelationship,
   familyMap: Map<number, FamilyMember>,
@@ -896,10 +952,10 @@ function relationshipSummary(
   const relatedName = relatedPerson ? displayName(relatedPerson) : "未登録の人物";
 
   if (relationship.relationshipType === "spouse") {
-    return `${personName} / ${relatedName}`;
+    return `${personName} と ${relatedName} は配偶者です`;
   }
 
-  return `親: ${personName} / 子: ${relatedName}`;
+  return `${personName} は ${relatedName} の親です`;
 }
 
 function displayName(person: FamilyMember) {
