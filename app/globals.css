@@ -487,8 +487,17 @@ textarea:focus {
 }
 
 .tree-entry-block {
-  max-width: 760px;
   min-width: 0;
+}
+
+.tree-add-form {
+  align-items: start;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.tree-add-form .name-fields,
+.tree-add-form .form-actions {
+  grid-column: 1 / -1;
 }
 
 .tree-workspace {
@@ -659,9 +668,15 @@ textarea:focus {
 
 .tree-person-card {
   align-content: start;
+  align-items: center;
   cursor: default;
-  height: 118px;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr;
+  height: 164px;
+  justify-items: center;
   overflow: hidden;
+  text-align: center;
 }
 
 .tree-person-card.selected {
@@ -675,6 +690,12 @@ textarea:focus {
   height: 58px;
   object-fit: cover;
   width: 58px;
+}
+
+.tree-person-card img,
+.tree-person-card .person-initial {
+  height: 64px;
+  width: 64px;
 }
 
 .person-initial {
@@ -698,6 +719,14 @@ textarea:focus {
   white-space: nowrap;
 }
 
+.tree-person-details {
+  display: grid;
+  gap: 3px;
+  justify-items: center;
+  min-width: 0;
+  width: 100%;
+}
+
 .tree-person-name {
   background: transparent;
   border: 0;
@@ -706,10 +735,10 @@ textarea:focus {
   display: block;
   font-size: 17px;
   font-weight: 900;
-  margin: 0 0 5px;
+  margin: 0;
   overflow: hidden;
   padding: 0;
-  text-align: left;
+  text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
   width: 100%;
@@ -723,6 +752,12 @@ textarea:focus {
   font-size: 12px;
   line-height: 1.45;
   margin-bottom: 0;
+  text-align: center;
+}
+
+.tree-person-age {
+  color: var(--muted);
+  font-weight: 800;
 }
 
 .profile-tags {
@@ -996,6 +1031,11 @@ textarea:focus {
   }
 
   .timeline-card {
+    grid-template-columns: 1fr;
+  }
+
+  .tree-add-form,
+  .tree-add-form .name-fields {
     grid-template-columns: 1fr;
   }
 

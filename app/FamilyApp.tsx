@@ -26,7 +26,7 @@ const navItems = [
 
 const etoAnimals = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"];
 const TREE_CARD_WIDTH = 220;
-const TREE_CARD_HEIGHT = 118;
+const TREE_CARD_HEIGHT = 164;
 const TREE_COLUMN_GAP = 46;
 const TREE_ROW_GAP = 86;
 const TREE_PADDING_X = 28;
@@ -337,7 +337,7 @@ function TreeSection({
         <div className="tree-entry-block">
           <h2>人物を追加</h2>
           <form
-            className="entry-form"
+            className="entry-form tree-add-form"
             onSubmit={async (event) => {
               event.preventDefault();
               await onSubmit(event.currentTarget, "人物を登録しました。");
@@ -429,6 +429,11 @@ function PersonDetailPanel({
     useState<FamilyRelationship | null>(null);
   const sign = getZodiacSign(person.birthMonth, person.birthDay);
   const eto = getEto(person.birthYear);
+  const birthDate = formatProfileDate(
+    person.birthYear,
+    person.birthMonth,
+    person.birthDay,
+  );
   const relationshipOptions = members.filter((member) => member.id !== person.id);
 
   return (
@@ -445,7 +450,7 @@ function PersonDetailPanel({
         <div>
           <span className="section-kicker">選択中の人物</span>
           <h2>{displayName(person)}</h2>
-          <p>{formatBirthdayAndAge(person) || "生年月日未登録"}</p>
+          <p>{birthDate || "生年月日未登録"}</p>
         </div>
       </div>
 
@@ -1069,14 +1074,28 @@ function TreePersonCard({
   onSelect: (personId: number) => void;
   person: FamilyMember;
 }) {
+  const birthDate = formatProfileDate(
+    person.birthYear,
+    person.birthMonth,
+    person.birthDay,
+  );
+  const age = formatPersonAge(person);
+
   return (
-    <article className={isSelected ? "person-card tree-person-card selected" : "person-card tree-person-card"}>
+    <article
+      className={
+        isSelected ? "person-card tree-person-card selected" : "person-card tree-person-card"
+      }
+    >
       {person.photoKey ? (
-        <img alt={person.photoName ?? displayName(person)} src={`/api/photos/${person.photoKey}`} />
+        <img
+          alt={person.photoName ?? displayName(person)}
+          src={`/api/photos/${person.photoKey}`}
+        />
       ) : (
         <span className="person-initial">{displayName(person).slice(0, 1)}</span>
       )}
-      <div>
+      <div className="tree-person-details">
         <button
           className="tree-person-name"
           onClick={() => onSelect(person.id)}
@@ -1084,11 +1103,12 @@ function TreePersonCard({
         >
           {displayName(person)}
         </button>
-        {formatBirthdayAndAge(person) ? (
-          <p>{formatBirthdayAndAge(person)}</p>
+        {birthDate ? (
+          <p>{birthDate}</p>
         ) : (
           <p className="muted">生年月日未登録</p>
         )}
+        {age ? <p className="tree-person-age">{age}</p> : null}
       </div>
     </article>
   );
@@ -1384,13 +1404,6 @@ function formatProfileDate(
   if (year) return `${year}年`;
   if (month && day) return `${month}月${day}日`;
   return "";
-}
-
-function formatBirthdayAndAge(person: FamilyMember) {
-  const birth = formatProfileDate(person.birthYear, person.birthMonth, person.birthDay);
-  const age = formatPersonAge(person);
-  if (birth && age) return `${birth} / ${age}`;
-  return birth || age;
 }
 
 function formatPersonAge(person: FamilyMember) {
