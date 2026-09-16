@@ -5,6 +5,7 @@ import type {
   CalendarEvent,
   FamilyData,
   FamilyMember,
+  FamilyRelationship,
   TimelineEvent,
 } from "./family-shared";
 import { CALENDAR_CATEGORIES, TIMELINE_CATEGORIES } from "./family-shared";
@@ -31,7 +32,7 @@ export function FamilyApp({ activeView, initialData }: FamilyAppProps) {
 
   async function submitFamilyForm(form: HTMLFormElement, doneMessage: string) {
     setIsSaving(true);
-    setMessage("保存中です。");
+    setMessage("処理中です。");
 
     try {
       const response = await fetch("/api/family", {
@@ -214,29 +215,55 @@ function TimelineSection({
         {data.timelineEvents.length === 0 ? (
           <EmptyState title="年表はまだ登録されていません" />
         ) : (
-          data.timelineEvents.map((event) => {
-            const category = TIMELINE_CATEGORIES.find((item) => item.name === event.category);
+          data.timelineEvents.map((timelineEvent) => {
+            const category = TIMELINE_CATEGORIES.find(
+              (item) => item.name === timelineEvent.category,
+            );
             return (
-              <article className="timeline-item" key={event.id}>
-                <div className="timeline-date">{formatPartialDate(event)}</div>
+              <article className="timeline-item" key={timelineEvent.id}>
+                <div className="timeline-date">{formatPartialDate(timelineEvent)}</div>
                 <div className="timeline-card">
-                  {event.coverPhotoKey ? (
+                  {timelineEvent.coverPhotoKey ? (
                     <img
-                      alt={event.coverPhotoName ?? event.title}
+                      alt={timelineEvent.coverPhotoName ?? timelineEvent.title}
                       className="timeline-photo"
-                      src={`/api/photos/${event.coverPhotoKey}`}
+                      src={`/api/photos/${timelineEvent.coverPhotoKey}`}
                     />
                   ) : null}
                   <div className="timeline-body">
                     <span className="category-badge">
                       <span>{category?.icon ?? "記"}</span>
-                      {event.category}
+                      {timelineEvent.category}
                     </span>
-                    <h2>{event.title}</h2>
-                    {event.description ? <p>{event.description}</p> : null}
-                    <button className="text-button" onClick={() => setEditing(event)} type="button">
-                      編集
-                    </button>
+                    <h2>{timelineEvent.title}</h2>
+                    {timelineEvent.description ? <p>{timelineEvent.description}</p> : null}
+                    <div className="item-actions">
+                      <button
+                        className="text-button"
+                        onClick={() => setEditing(timelineEvent)}
+                        type="button"
+                      >
+                        編集
+                      </button>
+                      <form
+                        className="inline-form"
+                        onSubmit={async (event) => {
+                          event.preventDefault();
+                          if (!window.confirm("この年表を削除しますか？")) return;
+                          const deleted = await onSubmit(
+                            event.currentTarget,
+                            "年表を削除しました。",
+                          );
+                          if (deleted && editing?.id === timelineEvent.id) setEditing(null);
+                        }}
+                      >
+                        <input name="action" type="hidden" value="deleteTimeline" />
+                        <input name="id" type="hidden" value={timelineEvent.id} />
+                        <button className="danger-button" disabled={isSaving} type="submit">
+                          削除
+                        </button>
+                      </form>
+                    </div>
                   </div>
                 </div>
               </article>
@@ -258,6 +285,8 @@ function TreeSection({
   onSubmit: (form: HTMLFormElement, doneMessage: string) => Promise<boolean>;
 }) {
   const [editing, setEditing] = useState<FamilyMember | null>(null);
+  const [editingRelationship, setEditingRelationship] =
+    useState<FamilyRelationship | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(
     data.familyMembers[0]?.id ?? null,
   );
@@ -337,28 +366,68 @@ function TreeSection({
             </div>
           </form>
 
-          <h2>関係を追加</h2>
+          <h2>{editingRelationship ? "関係を編集" : "関係を追加"}</h2>
           <form
+            key={editingRelationship?.id ?? "new-relationship"}
             className="entry-form compact-form"
             onSubmit={async (event) => {
               event.preventDefault();
-              await onSubmit(event.currentTarget, "関係を保存しました。");
+              const saved = await onSubmit(event.currentTarget, "関係を保存しました。");
+              if (saved) setEditingRelationship(null);
             }}
           >
             <input name="action" type="hidden" value="saveRelationship" />
+            {editingRelationship ? (
+              <input name="id" type="hidden" value={editingRelationship.id} />
+            ) : null}
             <label>
               <span>関係</span>
-              <select name="relationshipType">
+              <select
+                defaultValue={editingRelationship?.relationshipType ?? "parent"}
+                name="relationshipType"
+              >
                 <option value="parent">親子</option>
                 <option value="spouse">配偶者</option>
               </select>
             </label>
-            <PersonSelect label="人物" members={data.familyMembers} name="personId" />
-            <PersonSelect label="相手" members={data.familyMembers} name="relatedPersonId" />
-            <button className="primary-button" disabled={isSaving} type="submit">
-              登録
-            </button>
+            <PersonSelect
+              defaultValue={editingRelationship?.personId ?? ""}
+              label="人物"
+              members={data.familyMembers}
+              name="personId"
+            />
+            <PersonSelect
+              defaultValue={editingRelationship?.relatedPersonId ?? ""}
+              label="相手"
+              members={data.familyMembers}
+              name="relatedPersonId"
+            />
+            <div className="form-actions">
+              {editingRelationship ? (
+                <button
+                  className="ghost-button"
+                  onClick={() => setEditingRelationship(null)}
+                  type="button"
+                >
+                  取消
+                </button>
+              ) : null}
+              <button className="primary-button" disabled={isSaving} type="submit">
+                {editingRelationship ? "更新" : "登録"}
+              </button>
+            </div>
           </form>
+          <RelationshipList
+            editingRelationshipId={editingRelationship?.id ?? null}
+            familyMap={familyMap}
+            isSaving={isSaving}
+            onDeleted={(relationshipId) => {
+              if (editingRelationship?.id === relationshipId) setEditingRelationship(null);
+            }}
+            onEdit={setEditingRelationship}
+            onSubmit={onSubmit}
+            relationships={data.familyRelationships}
+          />
         </div>
 
         <div className="tree-stage">
@@ -385,13 +454,42 @@ function TreeSection({
                   <RelationColumn title="親" people={relations.parents} />
                   <div className="center-person">
                     <PersonCard person={selectedPerson} primary />
-                    <button
-                      className="text-button"
-                      onClick={() => setEditing(selectedPerson)}
-                      type="button"
-                    >
-                      編集
-                    </button>
+                    <div className="item-actions center-actions">
+                      <button
+                        className="text-button"
+                        onClick={() => setEditing(selectedPerson)}
+                        type="button"
+                      >
+                        編集
+                      </button>
+                      <form
+                        className="inline-form"
+                        onSubmit={async (event) => {
+                          event.preventDefault();
+                          if (!window.confirm("この人物を削除しますか？ 関係も削除されます。")) {
+                            return;
+                          }
+                          const remainingMembers = data.familyMembers.filter(
+                            (person) => person.id !== selectedPerson.id,
+                          );
+                          const deleted = await onSubmit(
+                            event.currentTarget,
+                            "人物を削除しました。",
+                          );
+                          if (deleted) {
+                            if (editing?.id === selectedPerson.id) setEditing(null);
+                            setEditingRelationship(null);
+                            setSelectedId(remainingMembers[0]?.id ?? null);
+                          }
+                        }}
+                      >
+                        <input name="action" type="hidden" value="deleteMember" />
+                        <input name="id" type="hidden" value={selectedPerson.id} />
+                        <button className="danger-button" disabled={isSaving} type="submit">
+                          削除
+                        </button>
+                      </form>
+                    </div>
                   </div>
                   <RelationColumn title="配偶者" people={relations.spouses} />
                   <RelationColumn title="兄弟姉妹" people={relations.siblings} />
@@ -525,9 +623,29 @@ function CalendarSection({
                 </p>
                 <span className="category-badge small">{event.category}</span>
                 {event.description ? <p>{event.description}</p> : null}
-                <button className="text-button" onClick={() => setEditing(event)} type="button">
-                  編集
-                </button>
+                <div className="item-actions">
+                  <button className="text-button" onClick={() => setEditing(event)} type="button">
+                    編集
+                  </button>
+                  <form
+                    className="inline-form"
+                    onSubmit={async (submitEvent) => {
+                      submitEvent.preventDefault();
+                      if (!window.confirm("この予定を削除しますか？")) return;
+                      const deleted = await onSubmit(
+                        submitEvent.currentTarget,
+                        "予定を削除しました。",
+                      );
+                      if (deleted && editing?.id === event.id) setEditing(null);
+                    }}
+                  >
+                    <input name="action" type="hidden" value="deleteCalendar" />
+                    <input name="id" type="hidden" value={event.id} />
+                    <button className="danger-button" disabled={isSaving} type="submit">
+                      削除
+                    </button>
+                  </form>
+                </div>
               </article>
             ))}
           </div>
@@ -579,10 +697,12 @@ function DateTriple({
 }
 
 function PersonSelect({
+  defaultValue = "",
   label,
   members,
   name,
 }: {
+  defaultValue?: number | "";
   label: string;
   members: FamilyMember[];
   name: string;
@@ -590,7 +710,7 @@ function PersonSelect({
   return (
     <label>
       <span>{label}</span>
-      <select name={name} required>
+      <select defaultValue={defaultValue} name={name} required>
         <option value="">選択</option>
         {members.map((person) => (
           <option key={person.id} value={person.id}>
@@ -599,6 +719,76 @@ function PersonSelect({
         ))}
       </select>
     </label>
+  );
+}
+
+function RelationshipList({
+  editingRelationshipId,
+  familyMap,
+  isSaving,
+  onDeleted,
+  onEdit,
+  onSubmit,
+  relationships,
+}: {
+  editingRelationshipId: number | null;
+  familyMap: Map<number, FamilyMember>;
+  isSaving: boolean;
+  onDeleted: (relationshipId: number) => void;
+  onEdit: (relationship: FamilyRelationship) => void;
+  onSubmit: (form: HTMLFormElement, doneMessage: string) => Promise<boolean>;
+  relationships: FamilyRelationship[];
+}) {
+  return (
+    <div className="relationship-list">
+      <h3>登録済みの関係</h3>
+      {relationships.length === 0 ? (
+        <p className="muted">関係はまだ登録されていません。</p>
+      ) : (
+        relationships.map((relationship) => (
+          <div
+            className={
+              editingRelationshipId === relationship.id
+                ? "relationship-row editing"
+                : "relationship-row"
+            }
+            key={relationship.id}
+          >
+            <div>
+              <strong>{relationshipTypeLabel(relationship.relationshipType)}</strong>
+              <span>{relationshipSummary(relationship, familyMap)}</span>
+            </div>
+            <div className="item-actions">
+              <button
+                className="text-button"
+                onClick={() => onEdit(relationship)}
+                type="button"
+              >
+                編集
+              </button>
+              <form
+                className="inline-form"
+                onSubmit={async (event) => {
+                  event.preventDefault();
+                  if (!window.confirm("この関係を削除しますか？")) return;
+                  const deleted = await onSubmit(
+                    event.currentTarget,
+                    "関係を削除しました。",
+                  );
+                  if (deleted) onDeleted(relationship.id);
+                }}
+              >
+                <input name="action" type="hidden" value="deleteRelationship" />
+                <input name="id" type="hidden" value={relationship.id} />
+                <button className="danger-button" disabled={isSaving} type="submit">
+                  削除
+                </button>
+              </form>
+            </div>
+          </div>
+        ))
+      )}
+    </div>
   );
 }
 
@@ -639,6 +829,26 @@ function PersonCard({ person, primary = false }: { person: FamilyMember; primary
       </div>
     </article>
   );
+}
+
+function relationshipTypeLabel(type: string) {
+  return type === "spouse" ? "配偶者" : "親子";
+}
+
+function relationshipSummary(
+  relationship: FamilyRelationship,
+  familyMap: Map<number, FamilyMember>,
+) {
+  const person = familyMap.get(relationship.personId);
+  const relatedPerson = familyMap.get(relationship.relatedPersonId);
+  const personName = person ? displayName(person) : "未登録の人物";
+  const relatedName = relatedPerson ? displayName(relatedPerson) : "未登録の人物";
+
+  if (relationship.relationshipType === "spouse") {
+    return `${personName} / ${relatedName}`;
+  }
+
+  return `親: ${personName} / 子: ${relatedName}`;
 }
 
 function displayName(person: FamilyMember) {

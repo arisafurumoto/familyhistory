@@ -294,6 +294,7 @@ textarea:focus {
 .primary-button,
 .ghost-button,
 .text-button,
+.danger-button,
 .icon-button {
   align-items: center;
   border: 0;
@@ -334,12 +335,45 @@ textarea:focus {
   padding: 0;
 }
 
+.danger-button {
+  background: #fff1f1;
+  border: 1px solid #ecc4c4;
+  color: #7a2929;
+  min-height: 40px;
+  padding: 8px 14px;
+}
+
+.danger-button:hover {
+  background: #fbe1e1;
+}
+
+.danger-button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
 .icon-button {
   background: var(--surface-muted);
   color: var(--green-dark);
   font-size: 28px;
   height: 40px;
   width: 40px;
+}
+
+.item-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.inline-form {
+  display: inline-flex;
+}
+
+.center-actions {
+  justify-content: center;
 }
 
 .timeline-list {
@@ -474,6 +508,48 @@ textarea:focus {
 .relation-column h3 {
   color: var(--red);
   margin-bottom: 12px;
+}
+
+.relationship-list {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+  margin-top: 22px;
+  padding-top: 20px;
+}
+
+.relationship-list h3 {
+  margin: 0;
+}
+
+.relationship-row {
+  align-items: center;
+  background: var(--surface-muted);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 12px;
+}
+
+.relationship-row.editing {
+  border-color: var(--teal);
+}
+
+.relationship-row strong,
+.relationship-row span {
+  display: block;
+}
+
+.relationship-row strong {
+  color: var(--red);
+  margin-bottom: 4px;
+}
+
+.relationship-row span {
+  color: #4f544a;
+  line-height: 1.55;
 }
 
 .person-card {
@@ -686,6 +762,10 @@ textarea:focus {
   }
 
   .person-board {
+    grid-template-columns: 1fr;
+  }
+
+  .relationship-row {
     grid-template-columns: 1fr;
   }
 

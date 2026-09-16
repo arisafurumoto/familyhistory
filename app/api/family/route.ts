@@ -1,5 +1,9 @@
 import { isFamilyAuthenticated } from "../../auth";
 import {
+  deleteCalendarEvent,
+  deleteFamilyMember,
+  deleteFamilyRelationship,
+  deleteTimelineEvent,
   getFamilyData,
   saveCalendarEvent,
   saveFamilyMember,
@@ -27,9 +31,13 @@ export async function POST(request: Request) {
     const action = formData.get("action");
 
     if (action === "saveTimeline") await saveTimelineEvent(formData);
+    else if (action === "deleteTimeline") await deleteTimelineEvent(formData);
     else if (action === "saveMember") await saveFamilyMember(formData);
+    else if (action === "deleteMember") await deleteFamilyMember(formData);
     else if (action === "saveRelationship") await saveFamilyRelationship(formData);
+    else if (action === "deleteRelationship") await deleteFamilyRelationship(formData);
     else if (action === "saveCalendar") await saveCalendarEvent(formData);
+    else if (action === "deleteCalendar") await deleteCalendarEvent(formData);
     else throw new Error("保存内容が正しくありません。");
 
     return Response.json({ data: await getFamilyData() });

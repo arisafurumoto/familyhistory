@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, or } from "drizzle-orm";
 import { getD1, getDb } from "@/db";
 import {
   calendarEvents,
@@ -247,6 +247,7 @@ async function ensureFamilyMemberNameColumns(d1: D1Database) {
 export async function saveFamilyRelationship(formData: FormData) {
   await ensureFamilySchema();
   const db = getDb();
+  const id = optionalId(formData.get("id"));
   const relationshipType = stringValue(formData.get("relationshipType"));
   const rawPersonId = requiredId(formData.get("personId"), "人物");
   const rawRelatedPersonId = requiredId(formData.get("relatedPersonId"), "相手");
@@ -264,7 +265,7 @@ export async function saveFamilyRelationship(formData: FormData) {
     throw new Error("関係の種類が正しくありません。");
   }
 
-  const existing = await db
+  const matchingRelationships = await db
     .select({ id: familyRelationships.id })
     .from(familyRelationships)
     .where(
@@ -274,15 +275,22 @@ export async function saveFamilyRelationship(formData: FormData) {
         eq(familyRelationships.relationshipType, relationshipType),
       ),
     )
-    .limit(1);
+    .limit(2);
 
-  if (existing.length > 0) return;
+  if (matchingRelationships.some((relationship) => relationship.id !== id)) return;
 
-  await db.insert(familyRelationships).values({
+  const values: typeof familyRelationships.$inferInsert = {
     personId: normalized.personId,
     relatedPersonId: normalized.relatedPersonId,
     relationshipType,
-  });
+  };
+
+  if (id) {
+    await db.update(familyRelationships).set(values).where(eq(familyRelationships.id, id));
+    return;
+  }
+
+  await db.insert(familyRelationships).values(values);
 }
 
 export async function saveCalendarEvent(formData: FormData) {
@@ -308,6 +316,40 @@ export async function saveCalendarEvent(formData: FormData) {
   }
 
   await db.insert(calendarEvents).values(values);
+}
+
+export async function deleteTimelineEvent(formData: FormData) {
+  await ensureFamilySchema();
+  const id = requiredId(formData.get("id"), "年表");
+  await getDb().delete(timelineEvents).where(eq(timelineEvents.id, id));
+}
+
+export async function deleteFamilyMember(formData: FormData) {
+  await ensureFamilySchema();
+  const db = getDb();
+  const id = requiredId(formData.get("id"), "人物");
+
+  await db
+    .delete(familyRelationships)
+    .where(
+      or(
+        eq(familyRelationships.personId, id),
+        eq(familyRelationships.relatedPersonId, id),
+      ),
+    );
+  await db.delete(familyMembers).where(eq(familyMembers.id, id));
+}
+
+export async function deleteFamilyRelationship(formData: FormData) {
+  await ensureFamilySchema();
+  const id = requiredId(formData.get("id"), "関係");
+  await getDb().delete(familyRelationships).where(eq(familyRelationships.id, id));
+}
+
+export async function deleteCalendarEvent(formData: FormData) {
+  await ensureFamilySchema();
+  const id = requiredId(formData.get("id"), "予定");
+  await getDb().delete(calendarEvents).where(eq(calendarEvents.id, id));
 }
 
 function parseTimelineDate(formData: FormData) {
