@@ -25,9 +25,9 @@ const navItems = [
 
 const etoAnimals = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"];
 const TREE_CARD_WIDTH = 220;
-const TREE_CARD_HEIGHT = 150;
+const TREE_CARD_HEIGHT = 118;
 const TREE_COLUMN_GAP = 46;
-const TREE_ROW_GAP = 96;
+const TREE_ROW_GAP = 86;
 const TREE_PADDING_X = 28;
 const TREE_PADDING_Y = 32;
 const TREE_LABEL_WIDTH = 84;
@@ -306,9 +306,11 @@ function TreeSection({
   isSaving: boolean;
   onSubmit: (form: HTMLFormElement, doneMessage: string) => Promise<boolean>;
 }) {
-  const [editing, setEditing] = useState<FamilyMember | null>(null);
   const [editingRelationship, setEditingRelationship] =
     useState<FamilyRelationship | null>(null);
+  const [selectedPersonId, setSelectedPersonId] = useState<number | null>(
+    data.familyMembers[0]?.id ?? null,
+  );
   const familyMap = useMemo(
     () => new Map(data.familyMembers.map((person) => [person.id, person])),
     [data.familyMembers],
@@ -317,6 +319,17 @@ function TreeSection({
     () => buildFamilyTreeLayout(data.familyMembers, data.familyRelationships),
     [data.familyMembers, data.familyRelationships],
   );
+  const selectedPerson =
+    data.familyMembers.find((person) => person.id === selectedPersonId) ??
+    data.familyMembers[0] ??
+    null;
+  const selectedPersonRelationships = selectedPerson
+    ? data.familyRelationships.filter(
+        (relationship) =>
+          relationship.personId === selectedPerson.id ||
+          relationship.relatedPersonId === selectedPerson.id,
+      )
+    : [];
 
   return (
     <section className="tree-page">
@@ -325,104 +338,238 @@ function TreeSection({
         <h1>家族のつながりを見る</h1>
       </div>
 
-      <div className="section-grid tree-layout">
-        <div className="panel form-panel">
-          <h2>{editing ? "人物を編集" : "人物を追加"}</h2>
-          <form
-            key={editing?.id ?? "new-person"}
-            className="entry-form"
-            onSubmit={async (event) => {
-              event.preventDefault();
-              const saved = await onSubmit(event.currentTarget, "人物を保存しました。");
-              if (saved) setEditing(null);
-            }}
-          >
-            <input name="action" type="hidden" value="saveMember" />
-            {editing ? <input name="id" type="hidden" value={editing.id} /> : null}
-            <div className="name-fields">
+      <div className="panel tree-entry-panel">
+        <div className="tree-entry-grid">
+          <div className="tree-entry-block">
+            <h2>人物を追加</h2>
+            <form
+              className="entry-form"
+              onSubmit={async (event) => {
+                event.preventDefault();
+                await onSubmit(event.currentTarget, "人物を登録しました。");
+              }}
+            >
+              <input name="action" type="hidden" value="saveMember" />
+              <div className="name-fields">
+                <label>
+                  <span>姓</span>
+                  <input name="familyName" required type="text" />
+                </label>
+                <label>
+                  <span>名</span>
+                  <input name="givenName" required type="text" />
+                </label>
+              </div>
+              <DateTriple label="生年月日" prefix="birth" source={null} />
+              <DateTriple label="没年月日" prefix="death" source={null} />
               <label>
-                <span>姓</span>
-                <input
-                  defaultValue={nameParts(editing).familyName}
-                  name="familyName"
-                  required
-                  type="text"
-                />
+                <span>写真</span>
+                <input accept="image/*" name="photo" type="file" />
               </label>
               <label>
-                <span>名</span>
-                <input
-                  defaultValue={nameParts(editing).givenName}
-                  name="givenName"
-                  required
-                  type="text"
-                />
+                <span>メモ</span>
+                <textarea name="memo" rows={4} />
               </label>
-            </div>
-            <DateTriple label="生年月日" prefix="birth" source={editing} />
-            <DateTriple label="没年月日" prefix="death" source={editing} />
-            <label>
-              <span>写真</span>
-              <input accept="image/*" name="photo" type="file" />
-            </label>
-            <label>
-              <span>メモ</span>
-              <textarea defaultValue={editing?.memo ?? ""} name="memo" rows={4} />
-            </label>
-            <div className="form-actions">
-              {editing ? (
-                <button className="ghost-button" onClick={() => setEditing(null)} type="button">
-                  取消
+              <div className="form-actions">
+                <button className="primary-button" disabled={isSaving} type="submit">
+                  登録
                 </button>
-              ) : null}
-              <button className="primary-button" disabled={isSaving} type="submit">
-                {editing ? "更新" : "登録"}
-              </button>
-            </div>
-          </form>
+              </div>
+            </form>
+          </div>
 
-          <h2>{editingRelationship ? "関係を編集" : "関係を追加"}</h2>
-          <RelationshipSentenceForm
-            key={editingRelationship?.id ?? "new-relationship"}
-            editingRelationship={editingRelationship}
-            isSaving={isSaving}
-            members={data.familyMembers}
-            onCancel={() => setEditingRelationship(null)}
-            onSaved={() => setEditingRelationship(null)}
-            onSubmit={onSubmit}
-          />
-          <RelationshipList
-            editingRelationshipId={editingRelationship?.id ?? null}
-            familyMap={familyMap}
-            isSaving={isSaving}
-            onDeleted={(relationshipId) => {
-              if (editingRelationship?.id === relationshipId) setEditingRelationship(null);
-            }}
-            onEdit={setEditingRelationship}
-            onSubmit={onSubmit}
-            relationships={data.familyRelationships}
-          />
+          <div className="tree-entry-block">
+            <h2>{editingRelationship ? "関係を編集" : "関係を追加"}</h2>
+            <RelationshipSentenceForm
+              key={editingRelationship?.id ?? "new-relationship"}
+              editingRelationship={editingRelationship}
+              isSaving={isSaving}
+              members={data.familyMembers}
+              onCancel={() => setEditingRelationship(null)}
+              onSaved={() => setEditingRelationship(null)}
+              onSubmit={onSubmit}
+            />
+            <RelationshipList
+              editingRelationshipId={editingRelationship?.id ?? null}
+              familyMap={familyMap}
+              isSaving={isSaving}
+              onDeleted={(relationshipId) => {
+                if (editingRelationship?.id === relationshipId) setEditingRelationship(null);
+              }}
+              onEdit={setEditingRelationship}
+              onSubmit={onSubmit}
+              relationships={data.familyRelationships}
+            />
+          </div>
         </div>
+      </div>
 
+      <div className="tree-workspace">
         <div className="tree-stage">
           {data.familyMembers.length === 0 ? (
             <EmptyState title="家系図はまだ登録されていません" />
           ) : (
             <FamilyTreeCanvas
-              editingPersonId={editing?.id ?? null}
-              isSaving={isSaving}
               layout={treeLayout}
-              onDelete={(person) => {
-                if (editing?.id === person.id) setEditing(null);
-                setEditingRelationship(null);
-              }}
-              onEdit={setEditing}
-              onSubmit={onSubmit}
+              onSelectPerson={setSelectedPersonId}
+              selectedPersonId={selectedPerson?.id ?? null}
             />
           )}
         </div>
+
+        <PersonDetailPanel
+          familyMap={familyMap}
+          isSaving={isSaving}
+          onDeleted={(person) => {
+            const remainingMembers = data.familyMembers.filter(
+              (member) => member.id !== person.id,
+            );
+            setSelectedPersonId(remainingMembers[0]?.id ?? null);
+            setEditingRelationship(null);
+          }}
+          onSubmit={onSubmit}
+          person={selectedPerson}
+          relationships={selectedPersonRelationships}
+        />
       </div>
     </section>
+  );
+}
+
+function PersonDetailPanel({
+  familyMap,
+  isSaving,
+  onDeleted,
+  onSubmit,
+  person,
+  relationships,
+}: {
+  familyMap: Map<number, FamilyMember>;
+  isSaving: boolean;
+  onDeleted: (person: FamilyMember) => void;
+  onSubmit: (form: HTMLFormElement, doneMessage: string) => Promise<boolean>;
+  person: FamilyMember | null;
+  relationships: FamilyRelationship[];
+}) {
+  if (!person) {
+    return (
+      <aside className="panel person-detail-panel">
+        <EmptyState title="人物を選択してください" />
+      </aside>
+    );
+  }
+
+  const sign = getZodiacSign(person.birthMonth, person.birthDay);
+  const eto = getEto(person.birthYear);
+
+  return (
+    <aside className="panel person-detail-panel">
+      <div className="person-detail-header">
+        {person.photoKey ? (
+          <img
+            alt={person.photoName ?? displayName(person)}
+            src={`/api/photos/${person.photoKey}`}
+          />
+        ) : (
+          <span className="person-detail-initial">{displayName(person).slice(0, 1)}</span>
+        )}
+        <div>
+          <span className="section-kicker">選択中の人物</span>
+          <h2>{displayName(person)}</h2>
+          <p>{formatBirthdayAndAge(person) || "生年月日未登録"}</p>
+        </div>
+      </div>
+
+      <div className="profile-tags detail-tags">
+        {sign ? <span>{sign}</span> : null}
+        {eto ? <span>{eto}</span> : null}
+        {formatPersonAge(person) ? <span>{formatPersonAge(person)}</span> : null}
+      </div>
+      {person.memo ? <p className="person-memo">{person.memo}</p> : null}
+
+      <section className="detail-relationships">
+        <h3>関係</h3>
+        {relationships.length === 0 ? (
+          <p className="muted">関係はまだ登録されていません。</p>
+        ) : (
+          <ul>
+            {relationships.map((relationship) => (
+              <li key={relationship.id}>
+                {personRelationshipSummary(person, relationship, familyMap)}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="detail-edit-section">
+        <h3>人物を編集</h3>
+        <form
+          key={`${person.id}-${person.updatedAt}`}
+          className="entry-form"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            await onSubmit(event.currentTarget, "人物を保存しました。");
+          }}
+        >
+          <input name="action" type="hidden" value="saveMember" />
+          <input name="id" type="hidden" value={person.id} />
+          <div className="name-fields">
+            <label>
+              <span>姓</span>
+              <input
+                defaultValue={nameParts(person).familyName}
+                name="familyName"
+                required
+                type="text"
+              />
+            </label>
+            <label>
+              <span>名</span>
+              <input
+                defaultValue={nameParts(person).givenName}
+                name="givenName"
+                required
+                type="text"
+              />
+            </label>
+          </div>
+          <DateTriple label="生年月日" prefix="birth" source={person} />
+          <DateTriple label="没年月日" prefix="death" source={person} />
+          <label>
+            <span>写真</span>
+            <input accept="image/*" name="photo" type="file" />
+          </label>
+          <label>
+            <span>メモ</span>
+            <textarea defaultValue={person.memo ?? ""} name="memo" rows={4} />
+          </label>
+          <div className="form-actions">
+            <button className="primary-button" disabled={isSaving} type="submit">
+              更新
+            </button>
+          </div>
+        </form>
+
+        <form
+          className="detail-delete-form"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            if (!window.confirm("この人物を削除しますか？ 関係も削除されます。")) {
+              return;
+            }
+            const deleted = await onSubmit(event.currentTarget, "人物を削除しました。");
+            if (deleted) onDeleted(person);
+          }}
+        >
+          <input name="action" type="hidden" value="deleteMember" />
+          <input name="id" type="hidden" value={person.id} />
+          <button className="danger-button" disabled={isSaving} type="submit">
+            削除
+          </button>
+        </form>
+      </section>
+    </aside>
   );
 }
 
@@ -814,19 +961,13 @@ function RelationshipList({
 }
 
 function FamilyTreeCanvas({
-  editingPersonId,
-  isSaving,
   layout,
-  onDelete,
-  onEdit,
-  onSubmit,
+  onSelectPerson,
+  selectedPersonId,
 }: {
-  editingPersonId: number | null;
-  isSaving: boolean;
   layout: FamilyTreeLayout;
-  onDelete: (person: FamilyMember) => void;
-  onEdit: (person: FamilyMember) => void;
-  onSubmit: (form: HTMLFormElement, doneMessage: string) => Promise<boolean>;
+  onSelectPerson: (personId: number) => void;
+  selectedPersonId: number | null;
 }) {
   return (
     <div className="tree-canvas-scroll" aria-label="家系図">
@@ -867,11 +1008,8 @@ function FamilyTreeCanvas({
             style={{ left: node.x, top: node.y }}
           >
             <TreePersonCard
-              isEditing={editingPersonId === node.person.id}
-              isSaving={isSaving}
-              onDelete={onDelete}
-              onEdit={onEdit}
-              onSubmit={onSubmit}
+              isSelected={selectedPersonId === node.person.id}
+              onSelect={onSelectPerson}
               person={node.person}
             />
           </div>
@@ -882,61 +1020,34 @@ function FamilyTreeCanvas({
 }
 
 function TreePersonCard({
-  isEditing,
-  isSaving,
-  onDelete,
-  onEdit,
-  onSubmit,
+  isSelected,
+  onSelect,
   person,
 }: {
-  isEditing: boolean;
-  isSaving: boolean;
-  onDelete: (person: FamilyMember) => void;
-  onEdit: (person: FamilyMember) => void;
-  onSubmit: (form: HTMLFormElement, doneMessage: string) => Promise<boolean>;
+  isSelected: boolean;
+  onSelect: (personId: number) => void;
   person: FamilyMember;
 }) {
-  const sign = getZodiacSign(person.birthMonth, person.birthDay);
-  const eto = getEto(person.birthYear);
-
   return (
-    <article className={isEditing ? "person-card tree-person-card editing" : "person-card tree-person-card"}>
+    <article className={isSelected ? "person-card tree-person-card selected" : "person-card tree-person-card"}>
       {person.photoKey ? (
         <img alt={person.photoName ?? displayName(person)} src={`/api/photos/${person.photoKey}`} />
       ) : (
         <span className="person-initial">{displayName(person).slice(0, 1)}</span>
       )}
       <div>
-        <h4>{displayName(person)}</h4>
-        {formatPersonLife(person) ? <p>{formatPersonLife(person)}</p> : null}
-        <div className="profile-tags">
-          {person.familyName ? <span>姓: {person.familyName}</span> : null}
-          {person.givenName ? <span>名: {person.givenName}</span> : null}
-          {sign ? <span>{sign}</span> : null}
-          {eto ? <span>{eto}</span> : null}
-        </div>
-      </div>
-      <div className="tree-card-actions">
-        <button className="text-button" onClick={() => onEdit(person)} type="button">
-          編集
-        </button>
-        <form
-          className="inline-form"
-          onSubmit={async (event) => {
-            event.preventDefault();
-            if (!window.confirm("この人物を削除しますか？ 関係も削除されます。")) {
-              return;
-            }
-            const deleted = await onSubmit(event.currentTarget, "人物を削除しました。");
-            if (deleted) onDelete(person);
-          }}
+        <button
+          className="tree-person-name"
+          onClick={() => onSelect(person.id)}
+          type="button"
         >
-          <input name="action" type="hidden" value="deleteMember" />
-          <input name="id" type="hidden" value={person.id} />
-          <button className="danger-button" disabled={isSaving} type="submit">
-            削除
-          </button>
-        </form>
+          {displayName(person)}
+        </button>
+        {formatBirthdayAndAge(person) ? (
+          <p>{formatBirthdayAndAge(person)}</p>
+        ) : (
+          <p className="muted">生年月日未登録</p>
+        )}
       </div>
     </article>
   );
@@ -958,10 +1069,32 @@ function relationshipSummary(
   return `${personName} は ${relatedName} の親です`;
 }
 
-function displayName(person: FamilyMember) {
-  if (person.familyName || person.givenName) {
-    return `${person.familyName}${person.givenName}`;
+function personRelationshipSummary(
+  person: FamilyMember,
+  relationship: FamilyRelationship,
+  familyMap: Map<number, FamilyMember>,
+) {
+  if (relationship.relationshipType === "spouse") {
+    const partnerId =
+      relationship.personId === person.id
+        ? relationship.relatedPersonId
+        : relationship.personId;
+    const partner = familyMap.get(partnerId);
+    return `${partner ? displayName(partner) : "未登録の人物"} の配偶者`;
   }
+
+  if (relationship.personId === person.id) {
+    const child = familyMap.get(relationship.relatedPersonId);
+    return `${child ? displayName(child) : "未登録の人物"} の親`;
+  }
+
+  const parent = familyMap.get(relationship.personId);
+  return `${parent ? displayName(parent) : "未登録の人物"} の子`;
+}
+
+function displayName(person: FamilyMember) {
+  if (person.familyName && person.givenName) return `${person.familyName} ${person.givenName}`;
+  if (person.familyName || person.givenName) return `${person.familyName}${person.givenName}`;
   return person.name;
 }
 
@@ -1026,7 +1159,7 @@ function buildFamilyTreeLayout(
   );
   const maxRowWidth = Math.max(...rowWidths, TREE_CARD_WIDTH);
   const width = Math.max(
-    720,
+    920,
     maxRowWidth + TREE_LABEL_WIDTH + TREE_PADDING_X * 2,
   );
   const nodes: FamilyTreeLayout["nodes"] = [];
@@ -1228,13 +1361,36 @@ function formatProfileDate(
   return "";
 }
 
-function formatPersonLife(person: FamilyMember) {
+function formatBirthdayAndAge(person: FamilyMember) {
   const birth = formatProfileDate(person.birthYear, person.birthMonth, person.birthDay);
-  const death = formatProfileDate(person.deathYear, person.deathMonth, person.deathDay);
-  if (birth && death) return `${birth} - ${death}`;
-  if (birth) return `${birth} 生`;
-  if (death) return `${death} 没`;
-  return "";
+  const age = formatPersonAge(person);
+  if (birth && age) return `${birth} / ${age}`;
+  return birth || age;
+}
+
+function formatPersonAge(person: FamilyMember) {
+  const age = calculateAge(person);
+  if (age === null) return "";
+  return person.deathYear ? `享年${age}歳` : `${age}歳`;
+}
+
+function calculateAge(person: FamilyMember) {
+  if (!person.birthYear) return null;
+
+  const today = new Date();
+  const endYear = person.deathYear ?? today.getFullYear();
+  const endMonth = person.deathMonth ?? (person.deathYear ? 12 : today.getMonth() + 1);
+  const endDay = person.deathDay ?? (person.deathYear ? 31 : today.getDate());
+  let age = endYear - person.birthYear;
+
+  if (person.birthMonth && person.birthDay) {
+    const hasBirthdayPassed =
+      endMonth > person.birthMonth ||
+      (endMonth === person.birthMonth && endDay >= person.birthDay);
+    if (!hasBirthdayPassed) age -= 1;
+  }
+
+  return age >= 0 ? age : null;
 }
 
 function getZodiacSign(month: number | null, day: number | null) {
