@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-html-link-for-pages */
+
 import {
   Baby,
   Briefcase,
@@ -15,7 +17,6 @@ import {
   School,
   type LucideIcon,
 } from "lucide-react";
-import Link from "next/link";
 import { useMemo, useState } from "react";
 import type {
   CalendarEvent,
@@ -119,22 +120,22 @@ export function FamilyApp({ activeView, initialData }: FamilyAppProps) {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <Link className="brand" href="/" aria-label="古本家の歴史 年表へ">
+        <a className="brand" href="/" aria-label="古本家の歴史 年表へ">
           <span className="brand-mark">古</span>
           <span>
             <strong>古本家の歴史</strong>
             <small>家族の記録</small>
           </span>
-        </Link>
+        </a>
         <nav className="main-nav" aria-label="主要ナビゲーション">
           {navItems.map((item) => (
-            <Link
+            <a
               aria-current={item.view === activeView ? "page" : undefined}
               href={item.href}
               key={item.href}
             >
               {item.label}
-            </Link>
+            </a>
           ))}
         </nav>
         <form action="/api/auth/logout" method="post">
