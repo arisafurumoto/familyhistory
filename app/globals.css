@@ -480,34 +480,8 @@ textarea:focus {
 
 .tree-stage {
   min-height: 620px;
-  padding: 22px;
-}
-
-.person-picker {
-  margin-bottom: 20px;
-  max-width: 360px;
-}
-
-.person-board {
-  display: grid;
-  gap: 16px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.center-person {
-  grid-column: 1 / -1;
-}
-
-.relation-column {
-  background: var(--surface-muted);
-  border-radius: 8px;
-  min-height: 120px;
-  padding: 16px;
-}
-
-.relation-column h3 {
-  color: var(--red);
-  margin-bottom: 12px;
+  overflow: hidden;
+  padding: 0;
 }
 
 .relationship-list {
@@ -558,15 +532,90 @@ textarea:focus {
   display: grid;
   gap: 12px;
   grid-template-columns: 58px minmax(0, 1fr);
-  margin-bottom: 10px;
   padding: 12px;
 }
 
-.primary-person {
-  border-color: #bfccb7;
-  box-shadow: var(--shadow);
-  grid-template-columns: 78px minmax(0, 1fr);
-  padding: 18px;
+.tree-canvas-scroll {
+  min-height: 620px;
+  overflow: auto;
+  padding: 22px;
+}
+
+.tree-canvas {
+  background: #fbfcfa;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-height: 100%;
+  position: relative;
+}
+
+.tree-lines {
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+  position: absolute;
+  z-index: 1;
+}
+
+.tree-link {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.tree-link.parent {
+  stroke: rgba(173, 125, 40, 0.78);
+  stroke-width: 2.5;
+}
+
+.tree-link.spouse {
+  stroke: rgba(51, 119, 129, 0.78);
+  stroke-dasharray: 8 6;
+  stroke-width: 3;
+}
+
+.generation-label {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--green-dark);
+  font-size: 12px;
+  font-weight: 900;
+  left: 14px;
+  padding: 6px 10px;
+  position: absolute;
+  transform: translateY(-50%);
+  z-index: 3;
+}
+
+.tree-person-node {
+  position: absolute;
+  width: 220px;
+  z-index: 2;
+}
+
+.tree-person-card {
+  align-content: start;
+  height: 150px;
+  overflow: hidden;
+}
+
+.tree-person-card.editing {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 3px rgba(51, 119, 129, 0.16), var(--shadow);
+}
+
+.tree-card-actions {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  grid-column: 1 / -1;
+}
+
+.tree-card-actions .danger-button {
+  font-size: 12px;
+  min-height: 32px;
+  padding: 5px 10px;
 }
 
 .person-card img,
@@ -575,12 +624,6 @@ textarea:focus {
   height: 58px;
   object-fit: cover;
   width: 58px;
-}
-
-.primary-person img,
-.primary-person .person-initial {
-  height: 78px;
-  width: 78px;
 }
 
 .person-initial {
@@ -598,6 +641,18 @@ textarea:focus {
   margin-bottom: 4px;
 }
 
+.tree-person-card h4 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tree-person-card p {
+  font-size: 12px;
+  line-height: 1.45;
+  margin-bottom: 0;
+}
+
 .profile-tags {
   display: flex;
   flex-wrap: wrap;
@@ -613,6 +668,11 @@ textarea:focus {
   font-size: 12px;
   font-weight: 800;
   padding: 4px 8px;
+}
+
+.tree-person-card .profile-tags {
+  max-height: 27px;
+  overflow: hidden;
 }
 
 .person-memo {
@@ -758,10 +818,6 @@ textarea:focus {
   }
 
   .timeline-card {
-    grid-template-columns: 1fr;
-  }
-
-  .person-board {
     grid-template-columns: 1fr;
   }
 

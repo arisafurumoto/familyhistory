@@ -24,6 +24,26 @@ const navItems = [
 ] as const;
 
 const etoAnimals = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"];
+const TREE_CARD_WIDTH = 220;
+const TREE_CARD_HEIGHT = 150;
+const TREE_COLUMN_GAP = 46;
+const TREE_ROW_GAP = 96;
+const TREE_PADDING_X = 28;
+const TREE_PADDING_Y = 32;
+const TREE_LABEL_WIDTH = 84;
+
+type FamilyTreeLayout = {
+  generationLabels: Array<{ key: string; text: string; y: number }>;
+  height: number;
+  lines: Array<{ key: string; kind: "parent" | "spouse"; path: string }>;
+  nodes: Array<{
+    generation: number;
+    person: FamilyMember;
+    x: number;
+    y: number;
+  }>;
+  width: number;
+};
 
 export function FamilyApp({ activeView, initialData }: FamilyAppProps) {
   const [data, setData] = useState(initialData);
@@ -287,27 +307,20 @@ function TreeSection({
   const [editing, setEditing] = useState<FamilyMember | null>(null);
   const [editingRelationship, setEditingRelationship] =
     useState<FamilyRelationship | null>(null);
-  const [selectedId, setSelectedId] = useState<number | null>(
-    data.familyMembers[0]?.id ?? null,
-  );
-
-  const selectedPerson =
-    data.familyMembers.find((person) => person.id === selectedId) ??
-    data.familyMembers[0] ??
-    null;
   const familyMap = useMemo(
     () => new Map(data.familyMembers.map((person) => [person.id, person])),
     [data.familyMembers],
   );
-  const relations = selectedPerson
-    ? getPersonRelations(selectedPerson, data.familyRelationships, familyMap)
-    : null;
+  const treeLayout = useMemo(
+    () => buildFamilyTreeLayout(data.familyMembers, data.familyRelationships),
+    [data.familyMembers, data.familyRelationships],
+  );
 
   return (
     <section className="tree-page">
       <div className="section-heading wide-heading">
         <span className="section-kicker">家系図</span>
-        <h1>人物を中心に見る</h1>
+        <h1>家族のつながりを見る</h1>
       </div>
 
       <div className="section-grid tree-layout">
@@ -434,69 +447,17 @@ function TreeSection({
           {data.familyMembers.length === 0 ? (
             <EmptyState title="家系図はまだ登録されていません" />
           ) : (
-            <>
-              <label className="person-picker">
-                <span>表示する人物</span>
-                <select
-                  onChange={(event) => setSelectedId(Number(event.target.value))}
-                  value={selectedPerson?.id ?? ""}
-                >
-                  {data.familyMembers.map((person) => (
-                    <option key={person.id} value={person.id}>
-                      {displayName(person)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              {selectedPerson && relations ? (
-                <div className="person-board">
-                  <RelationColumn title="親" people={relations.parents} />
-                  <div className="center-person">
-                    <PersonCard person={selectedPerson} primary />
-                    <div className="item-actions center-actions">
-                      <button
-                        className="text-button"
-                        onClick={() => setEditing(selectedPerson)}
-                        type="button"
-                      >
-                        編集
-                      </button>
-                      <form
-                        className="inline-form"
-                        onSubmit={async (event) => {
-                          event.preventDefault();
-                          if (!window.confirm("この人物を削除しますか？ 関係も削除されます。")) {
-                            return;
-                          }
-                          const remainingMembers = data.familyMembers.filter(
-                            (person) => person.id !== selectedPerson.id,
-                          );
-                          const deleted = await onSubmit(
-                            event.currentTarget,
-                            "人物を削除しました。",
-                          );
-                          if (deleted) {
-                            if (editing?.id === selectedPerson.id) setEditing(null);
-                            setEditingRelationship(null);
-                            setSelectedId(remainingMembers[0]?.id ?? null);
-                          }
-                        }}
-                      >
-                        <input name="action" type="hidden" value="deleteMember" />
-                        <input name="id" type="hidden" value={selectedPerson.id} />
-                        <button className="danger-button" disabled={isSaving} type="submit">
-                          削除
-                        </button>
-                      </form>
-                    </div>
-                  </div>
-                  <RelationColumn title="配偶者" people={relations.spouses} />
-                  <RelationColumn title="兄弟姉妹" people={relations.siblings} />
-                  <RelationColumn title="子ども" people={relations.children} />
-                </div>
-              ) : null}
-            </>
+            <FamilyTreeCanvas
+              editingPersonId={editing?.id ?? null}
+              isSaving={isSaving}
+              layout={treeLayout}
+              onDelete={(person) => {
+                if (editing?.id === person.id) setEditing(null);
+                setEditingRelationship(null);
+              }}
+              onEdit={setEditing}
+              onSubmit={onSubmit}
+            />
           )}
         </div>
       </div>
@@ -792,25 +753,94 @@ function RelationshipList({
   );
 }
 
-function RelationColumn({ people, title }: { people: FamilyMember[]; title: string }) {
+function FamilyTreeCanvas({
+  editingPersonId,
+  isSaving,
+  layout,
+  onDelete,
+  onEdit,
+  onSubmit,
+}: {
+  editingPersonId: number | null;
+  isSaving: boolean;
+  layout: FamilyTreeLayout;
+  onDelete: (person: FamilyMember) => void;
+  onEdit: (person: FamilyMember) => void;
+  onSubmit: (form: HTMLFormElement, doneMessage: string) => Promise<boolean>;
+}) {
   return (
-    <section className="relation-column">
-      <h3>{title}</h3>
-      {people.length === 0 ? (
-        <p className="muted">未登録</p>
-      ) : (
-        people.map((person) => <PersonCard key={person.id} person={person} />)
-      )}
-    </section>
+    <div className="tree-canvas-scroll" aria-label="家系図">
+      <div
+        className="tree-canvas"
+        style={{ height: layout.height, width: layout.width }}
+      >
+        <svg
+          aria-hidden="true"
+          className="tree-lines"
+          height={layout.height}
+          viewBox={`0 0 ${layout.width} ${layout.height}`}
+          width={layout.width}
+        >
+          {layout.lines.map((line) => (
+            <path
+              className={line.kind === "spouse" ? "tree-link spouse" : "tree-link parent"}
+              d={line.path}
+              key={line.key}
+            />
+          ))}
+        </svg>
+
+        {layout.generationLabels.map((label) => (
+          <span
+            className="generation-label"
+            key={label.key}
+            style={{ top: label.y }}
+          >
+            {label.text}
+          </span>
+        ))}
+
+        {layout.nodes.map((node) => (
+          <div
+            className="tree-person-node"
+            key={node.person.id}
+            style={{ left: node.x, top: node.y }}
+          >
+            <TreePersonCard
+              isEditing={editingPersonId === node.person.id}
+              isSaving={isSaving}
+              onDelete={onDelete}
+              onEdit={onEdit}
+              onSubmit={onSubmit}
+              person={node.person}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
-function PersonCard({ person, primary = false }: { person: FamilyMember; primary?: boolean }) {
+function TreePersonCard({
+  isEditing,
+  isSaving,
+  onDelete,
+  onEdit,
+  onSubmit,
+  person,
+}: {
+  isEditing: boolean;
+  isSaving: boolean;
+  onDelete: (person: FamilyMember) => void;
+  onEdit: (person: FamilyMember) => void;
+  onSubmit: (form: HTMLFormElement, doneMessage: string) => Promise<boolean>;
+  person: FamilyMember;
+}) {
   const sign = getZodiacSign(person.birthMonth, person.birthDay);
   const eto = getEto(person.birthYear);
 
   return (
-    <article className={primary ? "person-card primary-person" : "person-card"}>
+    <article className={isEditing ? "person-card tree-person-card editing" : "person-card tree-person-card"}>
       {person.photoKey ? (
         <img alt={person.photoName ?? displayName(person)} src={`/api/photos/${person.photoKey}`} />
       ) : (
@@ -825,7 +855,28 @@ function PersonCard({ person, primary = false }: { person: FamilyMember; primary
           {sign ? <span>{sign}</span> : null}
           {eto ? <span>{eto}</span> : null}
         </div>
-        {person.memo ? <p className="person-memo">{person.memo}</p> : null}
+      </div>
+      <div className="tree-card-actions">
+        <button className="text-button" onClick={() => onEdit(person)} type="button">
+          編集
+        </button>
+        <form
+          className="inline-form"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            if (!window.confirm("この人物を削除しますか？ 関係も削除されます。")) {
+              return;
+            }
+            const deleted = await onSubmit(event.currentTarget, "人物を削除しました。");
+            if (deleted) onDelete(person);
+          }}
+        >
+          <input name="action" type="hidden" value="deleteMember" />
+          <input name="id" type="hidden" value={person.id} />
+          <button className="danger-button" disabled={isSaving} type="submit">
+            削除
+          </button>
+        </form>
       </div>
     </article>
   );
@@ -881,47 +932,222 @@ function EmptyState({ title }: { title: string }) {
   );
 }
 
-function getPersonRelations(
-  person: FamilyMember,
+function buildFamilyTreeLayout(
+  members: FamilyMember[],
   relationships: FamilyData["familyRelationships"],
-  familyMap: Map<number, FamilyMember>,
-) {
-  const parents = relationships
-    .filter((relation) => relation.relationshipType === "parent" && relation.relatedPersonId === person.id)
-    .map((relation) => familyMap.get(relation.personId))
-    .filter(Boolean) as FamilyMember[];
-  const parentIds = new Set(parents.map((parent) => parent.id));
-  const children = relationships
-    .filter((relation) => relation.relationshipType === "parent" && relation.personId === person.id)
-    .map((relation) => familyMap.get(relation.relatedPersonId))
-    .filter(Boolean) as FamilyMember[];
-  const spouseRelations = relationships.filter(
-    (relation) =>
-      relation.relationshipType === "spouse" &&
-      (relation.personId === person.id || relation.relatedPersonId === person.id),
+): FamilyTreeLayout {
+  const memberIds = new Set(members.map((member) => member.id));
+  const parentRelationships = relationships.filter(
+    (relationship) =>
+      relationship.relationshipType === "parent" &&
+      memberIds.has(relationship.personId) &&
+      memberIds.has(relationship.relatedPersonId),
   );
-  const spouses = spouseRelations
-    .map((relation) =>
-      familyMap.get(relation.personId === person.id ? relation.relatedPersonId : relation.personId),
-    )
-    .filter(Boolean) as FamilyMember[];
-  const siblingIds = new Set<number>();
+  const spouseRelationships = relationships.filter(
+    (relationship) =>
+      relationship.relationshipType === "spouse" &&
+      memberIds.has(relationship.personId) &&
+      memberIds.has(relationship.relatedPersonId),
+  );
+  const generations = calculateGenerations(
+    members,
+    parentRelationships,
+    spouseRelationships,
+  );
+  const generationValues = [...new Set(generations.values())].sort(
+    (left, right) => left - right,
+  );
+  const groupByGeneration = generationValues.map((generationValue, generation) => ({
+    generation,
+    people: orderGenerationPeople(
+      members.filter((member) => generations.get(member.id) === generationValue),
+      spouseRelationships,
+    ),
+  }));
+  const rowWidths = groupByGeneration.map(({ people }) =>
+    people.length * TREE_CARD_WIDTH +
+    Math.max(0, people.length - 1) * TREE_COLUMN_GAP,
+  );
+  const maxRowWidth = Math.max(...rowWidths, TREE_CARD_WIDTH);
+  const width = Math.max(
+    720,
+    maxRowWidth + TREE_LABEL_WIDTH + TREE_PADDING_X * 2,
+  );
+  const nodes: FamilyTreeLayout["nodes"] = [];
+  const nodeById = new Map<number, FamilyTreeLayout["nodes"][number]>();
+  const generationLabels: FamilyTreeLayout["generationLabels"] = [];
 
-  relationships.forEach((relation) => {
-    if (
-      relation.relationshipType === "parent" &&
-      parentIds.has(relation.personId) &&
-      relation.relatedPersonId !== person.id
-    ) {
-      siblingIds.add(relation.relatedPersonId);
-    }
+  groupByGeneration.forEach(({ generation, people }, rowIndex) => {
+    const y = TREE_PADDING_Y + rowIndex * (TREE_CARD_HEIGHT + TREE_ROW_GAP);
+    const rowWidth =
+      people.length * TREE_CARD_WIDTH +
+      Math.max(0, people.length - 1) * TREE_COLUMN_GAP;
+    const startX =
+      TREE_PADDING_X +
+      TREE_LABEL_WIDTH +
+      Math.max(0, (maxRowWidth - rowWidth) / 2);
+
+    generationLabels.push({
+      key: `generation-${generation}`,
+      text: `第${generation + 1}世代`,
+      y: y + TREE_CARD_HEIGHT / 2,
+    });
+
+    people.forEach((person, index) => {
+      const node = {
+        generation,
+        person,
+        x: startX + index * (TREE_CARD_WIDTH + TREE_COLUMN_GAP),
+        y,
+      };
+      nodes.push(node);
+      nodeById.set(person.id, node);
+    });
   });
 
-  const siblings = [...siblingIds]
-    .map((id) => familyMap.get(id))
-    .filter(Boolean) as FamilyMember[];
+  const height =
+    TREE_PADDING_Y * 2 +
+    groupByGeneration.length * TREE_CARD_HEIGHT +
+    Math.max(0, groupByGeneration.length - 1) * TREE_ROW_GAP;
+  const lines: FamilyTreeLayout["lines"] = [];
 
-  return { parents, spouses, siblings, children };
+  spouseRelationships.forEach((relationship) => {
+    const firstNode = nodeById.get(relationship.personId);
+    const secondNode = nodeById.get(relationship.relatedPersonId);
+    if (!firstNode || !secondNode) return;
+
+    const [leftNode, rightNode] =
+      firstNode.x <= secondNode.x ? [firstNode, secondNode] : [secondNode, firstNode];
+    const y = leftNode.y + TREE_CARD_HEIGHT / 2;
+    lines.push({
+      key: `spouse-${relationship.id}`,
+      kind: "spouse",
+      path: `M ${leftNode.x + TREE_CARD_WIDTH} ${y} L ${rightNode.x} ${y}`,
+    });
+  });
+
+  parentRelationships.forEach((relationship) => {
+    const parentNode = nodeById.get(relationship.personId);
+    const childNode = nodeById.get(relationship.relatedPersonId);
+    if (!parentNode || !childNode) return;
+
+    const startX = parentNode.x + TREE_CARD_WIDTH / 2;
+    const startY = parentNode.y + TREE_CARD_HEIGHT;
+    const endX = childNode.x + TREE_CARD_WIDTH / 2;
+    const endY = childNode.y;
+    const middleY = startY + Math.max(32, (endY - startY) / 2);
+    lines.push({
+      key: `parent-${relationship.id}`,
+      kind: "parent",
+      path: `M ${startX} ${startY} C ${startX} ${middleY} ${endX} ${middleY} ${endX} ${endY}`,
+    });
+  });
+
+  return {
+    generationLabels,
+    height,
+    lines,
+    nodes,
+    width,
+  };
+}
+
+function calculateGenerations(
+  members: FamilyMember[],
+  parentRelationships: FamilyRelationship[],
+  spouseRelationships: FamilyRelationship[],
+) {
+  const maxGeneration = Math.max(0, members.length - 1);
+  const generations = new Map(members.map((member) => [member.id, 0]));
+  const maxPasses = Math.max(1, members.length * (parentRelationships.length + 1));
+
+  for (let pass = 0; pass < maxPasses; pass += 1) {
+    let changed = false;
+
+    parentRelationships.forEach((relationship) => {
+      const parentGeneration = generations.get(relationship.personId) ?? 0;
+      const childGeneration = generations.get(relationship.relatedPersonId) ?? 0;
+      const nextGeneration = Math.min(parentGeneration + 1, maxGeneration);
+      if (childGeneration < nextGeneration) {
+        generations.set(relationship.relatedPersonId, nextGeneration);
+        changed = true;
+      }
+    });
+
+    spouseRelationships.forEach((relationship) => {
+      const firstGeneration = generations.get(relationship.personId) ?? 0;
+      const secondGeneration = generations.get(relationship.relatedPersonId) ?? 0;
+      const sharedGeneration = Math.max(firstGeneration, secondGeneration);
+      if (firstGeneration !== sharedGeneration) {
+        generations.set(relationship.personId, sharedGeneration);
+        changed = true;
+      }
+      if (secondGeneration !== sharedGeneration) {
+        generations.set(relationship.relatedPersonId, sharedGeneration);
+        changed = true;
+      }
+    });
+
+    if (!changed) break;
+  }
+
+  const minimumGeneration = Math.min(...generations.values(), 0);
+  if (minimumGeneration > 0) {
+    members.forEach((member) => {
+      generations.set(member.id, (generations.get(member.id) ?? 0) - minimumGeneration);
+    });
+  }
+
+  return generations;
+}
+
+function orderGenerationPeople(
+  people: FamilyMember[],
+  spouseRelationships: FamilyRelationship[],
+) {
+  const peopleById = new Map(people.map((person) => [person.id, person]));
+  const partnersById = new Map<number, FamilyMember[]>();
+
+  spouseRelationships.forEach((relationship) => {
+    const firstPerson = peopleById.get(relationship.personId);
+    const secondPerson = peopleById.get(relationship.relatedPersonId);
+    if (!firstPerson || !secondPerson) return;
+
+    partnersById.set(relationship.personId, [
+      ...(partnersById.get(relationship.personId) ?? []),
+      secondPerson,
+    ]);
+    partnersById.set(relationship.relatedPersonId, [
+      ...(partnersById.get(relationship.relatedPersonId) ?? []),
+      firstPerson,
+    ]);
+  });
+
+  const orderedPeople: FamilyMember[] = [];
+  const visited = new Set<number>();
+
+  [...people].sort(compareFamilyMembers).forEach((person) => {
+    if (visited.has(person.id)) return;
+    orderedPeople.push(person);
+    visited.add(person.id);
+
+    (partnersById.get(person.id) ?? [])
+      .sort(compareFamilyMembers)
+      .forEach((partner) => {
+        if (visited.has(partner.id)) return;
+        orderedPeople.push(partner);
+        visited.add(partner.id);
+      });
+  });
+
+  return orderedPeople;
+}
+
+function compareFamilyMembers(left: FamilyMember, right: FamilyMember) {
+  const leftYear = left.birthYear ?? 9999;
+  const rightYear = right.birthYear ?? 9999;
+  if (leftYear !== rightYear) return leftYear - rightYear;
+  return displayName(left).localeCompare(displayName(right), "ja-JP");
 }
 
 function formatPartialDate(event: TimelineEvent) {
