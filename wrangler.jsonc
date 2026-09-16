@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "furumoto-family-history",
+  "name": "familyhistory",
   "account_id": "0d197712aae9ebc63d6a6a02c926bd03",
   "main": "./worker/index.ts",
   "compatibility_date": "2026-09-16",
@@ -28,15 +28,5 @@
   ],
   "images": {
     "binding": "IMAGES"
-  },
-  "routes": [
-    {
-      "pattern": "furumotofamily.com",
-      "custom_domain": true
-    },
-    {
-      "pattern": "www.furumotofamily.com",
-      "custom_domain": true
-    }
-  ]
+  }
 }
