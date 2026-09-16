@@ -487,6 +487,7 @@ textarea:focus {
 }
 
 .tree-entry-block {
+  max-width: 760px;
   min-width: 0;
 }
 
@@ -494,6 +495,10 @@ textarea:focus {
   align-items: start;
   display: grid;
   gap: 24px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.tree-workspace.has-selection {
   grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
 }
 
@@ -538,6 +543,12 @@ textarea:focus {
 
 .relationship-particle {
   color: var(--muted);
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.relationship-fixed-person {
+  color: var(--green-dark);
   font-weight: 900;
   white-space: nowrap;
 }
@@ -825,6 +836,15 @@ textarea:focus {
   padding-top: 16px;
 }
 
+.detail-actions {
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+  padding-top: 18px;
+}
+
 .calendar-panel {
   padding: 22px;
 }
@@ -946,6 +966,10 @@ textarea:focus {
 
   .tree-entry-grid,
   .tree-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .tree-workspace.has-selection {
     grid-template-columns: 1fr;
   }
 
