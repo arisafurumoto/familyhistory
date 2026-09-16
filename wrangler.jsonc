@@ -1,0 +1,42 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "furumoto-family-history",
+  "account_id": "0d197712aae9ebc63d6a6a02c926bd03",
+  "main": "./worker/index.ts",
+  "compatibility_date": "2026-09-16",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "binding": "ASSETS",
+    "not_found_handling": "none"
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "furumoto-family-history-db",
+      "database_id": "ae5e9a8e-499a-40c5-bc92-5ddcb6f5a217"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "MEDIA",
+      "bucket_name": "furumoto-family-history-media"
+    }
+  ],
+  "images": {
+    "binding": "IMAGES"
+  },
+  "routes": [
+    {
+      "pattern": "furumotofamily.com",
+      "custom_domain": true
+    },
+    {
+      "pattern": "www.furumotofamily.com",
+      "custom_domain": true
+    }
+  ]
+}

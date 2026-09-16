@@ -94,6 +94,28 @@ actions tied to the current ChatGPT user. Leave public content anonymous.
 - `npm test`: build the starter and verify its rendered loading skeleton
 - `npm run db:generate`: generate Drizzle migrations after schema changes
 
+## Cloudflare Deployment
+
+Production is configured for Cloudflare Workers in `wrangler.jsonc`.
+
+- Worker: `furumoto-family-history`
+- D1 binding: `DB` (`furumoto-family-history-db`)
+- R2 binding: `MEDIA` (`furumoto-family-history-media`)
+- Images binding: `IMAGES`
+- Runtime secret: `FAMILY_SITE_PASSWORD`
+
+Do not commit passwords, API tokens, or real family data. Set
+`FAMILY_SITE_PASSWORD` in Cloudflare as a Worker secret. R2 must be enabled once
+in the Cloudflare dashboard before the media bucket can be created.
+
+The intended production flow is:
+
+1. Push `main` to GitHub.
+2. Cloudflare Workers Builds runs `npm ci && npm run build`.
+3. Cloudflare Workers Builds runs `npm run deploy:cloudflare`.
+4. Cloudflare serves `furumotofamily.com` and `www.furumotofamily.com` through
+   Worker Custom Domains.
+
 ## Learn More
 
 - [vinext Documentation](https://github.com/cloudflare/vinext)
