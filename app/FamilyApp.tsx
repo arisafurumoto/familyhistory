@@ -3,6 +3,7 @@
 import {
   Baby,
   Briefcase,
+  ChevronDown,
   CircleEllipsis,
   Flower,
   GraduationCap,
@@ -174,6 +175,7 @@ function TimelineSection({
   onSubmit: (form: HTMLFormElement, doneMessage: string) => Promise<boolean>;
 }) {
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
+  const [isAddOpen, setIsAddOpen] = useState(false);
   const timelineYears = useMemo(
     () => groupTimelineEventsByYear(data.timelineEvents),
     [data.timelineEvents],
@@ -188,14 +190,32 @@ function TimelineSection({
         <h1>家族の出来事を見る</h1>
       </div>
 
-      <div className="panel timeline-add-panel">
-        <h2>年表に追加</h2>
-        <TimelineEventForm
-          event={null}
-          isSaving={isSaving}
-          onSubmit={onSubmit}
-          submitLabel="登録"
-        />
+      <div
+        className={
+          isAddOpen ? "panel timeline-add-panel open" : "panel timeline-add-panel"
+        }
+      >
+        <button
+          aria-controls="timeline-add-form"
+          aria-expanded={isAddOpen}
+          className="timeline-add-toggle"
+          onClick={() => setIsAddOpen((current) => !current)}
+          type="button"
+        >
+          <span>年表に追加</span>
+          <ChevronDown aria-hidden="true" />
+        </button>
+        {isAddOpen ? (
+          <div className="timeline-add-content" id="timeline-add-form">
+            <TimelineEventForm
+              event={null}
+              isSaving={isSaving}
+              onCancel={() => setIsAddOpen(false)}
+              onSubmit={onSubmit}
+              submitLabel="登録"
+            />
+          </div>
+        ) : null}
       </div>
 
       <div
@@ -489,7 +509,7 @@ function timelineCategoryDefinition(categoryName: string) {
 function groupTimelineEventsByYear(events: TimelineEvent[]) {
   const yearMap = new Map<number, TimelineEvent[]>();
 
-  events.forEach((event) => {
+  [...events].sort(compareTimelineEventsDesc).forEach((event) => {
     yearMap.set(event.dateYear, [...(yearMap.get(event.dateYear) ?? []), event]);
   });
 
@@ -497,6 +517,15 @@ function groupTimelineEventsByYear(events: TimelineEvent[]) {
     events: yearEvents,
     year,
   }));
+}
+
+function compareTimelineEventsDesc(left: TimelineEvent, right: TimelineEvent) {
+  return (
+    right.dateYear - left.dateYear ||
+    (right.dateMonth ?? 0) - (left.dateMonth ?? 0) ||
+    (right.dateDay ?? 0) - (left.dateDay ?? 0) ||
+    right.id - left.id
+  );
 }
 
 function TreeSection({
