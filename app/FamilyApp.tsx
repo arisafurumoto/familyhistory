@@ -238,11 +238,13 @@ function TimelineSection({
                       timelineEvent.category,
                     );
 
+                    const isSelected = selectedEventId === timelineEvent.id;
+
                     return (
                       <article
                         className={
-                          selectedEventId === timelineEvent.id
-                            ? "timeline-item selected"
+                          isSelected
+                            ? "timeline-item selected with-inline-detail"
                             : "timeline-item"
                         }
                         key={timelineEvent.id}
@@ -255,13 +257,26 @@ function TimelineSection({
                           <TimelineCategoryIcon category={category} />
                         </span>
                         <button
-                          aria-pressed={selectedEventId === timelineEvent.id}
+                          aria-pressed={isSelected}
                           className="timeline-title-button"
                           onClick={() => setSelectedEventId(timelineEvent.id)}
                           type="button"
                         >
                           {timelineEvent.title}
                         </button>
+                        {isSelected ? (
+                          <div className="timeline-inline-detail">
+                            <TimelineEventDetailPanel
+                              event={timelineEvent}
+                              isSaving={isSaving}
+                              key={`inline-${timelineEvent.id}`}
+                              onClose={() => setSelectedEventId(null)}
+                              onDeleted={() => setSelectedEventId(null)}
+                              onSubmit={onSubmit}
+                              variant="inline"
+                            />
+                          </div>
+                        ) : null}
                       </article>
                     );
                   })}
@@ -275,9 +290,11 @@ function TimelineSection({
           <TimelineEventDetailPanel
             event={selectedEvent}
             isSaving={isSaving}
-            key={selectedEvent.id}
+            key={`desktop-${selectedEvent.id}`}
+            onClose={() => setSelectedEventId(null)}
             onDeleted={() => setSelectedEventId(null)}
             onSubmit={onSubmit}
+            variant="desktop"
           />
         ) : null}
       </div>
@@ -389,22 +406,35 @@ function TimelineEventForm({
 function TimelineEventDetailPanel({
   event,
   isSaving,
+  onClose,
   onDeleted,
   onSubmit,
+  variant,
 }: {
   event: TimelineEvent;
   isSaving: boolean;
+  onClose: () => void;
   onDeleted: () => void;
   onSubmit: (form: HTMLFormElement, doneMessage: string) => Promise<boolean>;
+  variant: "desktop" | "inline";
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const category = timelineCategoryDefinition(event.category);
+  const panelClassName =
+    variant === "desktop"
+      ? "panel timeline-detail-panel timeline-detail-panel-desktop"
+      : "timeline-detail-panel timeline-detail-panel-inline-card";
 
   return (
-    <aside className="panel timeline-detail-panel">
+    <aside className={panelClassName}>
       {isEditing ? (
         <section className="detail-edit-section">
-          <h2>年表を編集</h2>
+          <div className="timeline-detail-toolbar">
+            <h2>年表を編集</h2>
+            <button className="ghost-button" onClick={onClose} type="button">
+              閉じる
+            </button>
+          </div>
           <TimelineEventForm
             event={event}
             isSaving={isSaving}
@@ -416,10 +446,15 @@ function TimelineEventDetailPanel({
       ) : (
         <>
           <div className="timeline-detail-header">
-            <span className="category-badge">
-              <TimelineCategoryIcon category={category} />
-              {event.category}
-            </span>
+            <div className="timeline-detail-toolbar">
+              <span className="category-badge">
+                <TimelineCategoryIcon category={category} />
+                {event.category}
+              </span>
+              <button className="ghost-button" onClick={onClose} type="button">
+                閉じる
+              </button>
+            </div>
             <h2>{event.title}</h2>
           </div>
 

@@ -435,7 +435,11 @@ textarea:focus {
 }
 
 .timeline-workspace.has-selection {
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 400px);
+  grid-template-columns: minmax(320px, 400px) minmax(0, 1fr);
+}
+
+.timeline-workspace.has-selection .timeline-list {
+  grid-column: 2;
 }
 
 .timeline-list {
@@ -568,17 +572,44 @@ textarea:focus {
   color: var(--teal);
 }
 
+.timeline-inline-detail {
+  display: none;
+  grid-column: 1 / -1;
+}
+
 .timeline-detail-panel {
   display: grid;
   gap: 18px;
   padding: 22px;
+}
+
+.timeline-detail-panel-desktop {
+  grid-column: 1;
+  grid-row: 1;
   position: sticky;
   top: 92px;
+}
+
+.timeline-detail-panel-inline-card {
+  border-top: 1px solid var(--line);
+  margin-top: 4px;
+  padding: 18px 0 2px;
 }
 
 .timeline-detail-header {
   display: grid;
   gap: 12px;
+}
+
+.timeline-detail-toolbar {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.timeline-detail-toolbar h2 {
+  margin: 0;
 }
 
 .timeline-detail-header h2 {
@@ -1201,6 +1232,26 @@ textarea:focus {
   .timeline-workspace,
   .timeline-workspace.has-selection {
     grid-template-columns: 1fr;
+  }
+
+  .timeline-workspace.has-selection .timeline-list {
+    grid-column: auto;
+  }
+
+  .timeline-detail-panel-desktop {
+    display: none;
+  }
+
+  .timeline-inline-detail {
+    display: block;
+  }
+
+  .timeline-item.with-inline-detail::before {
+    top: 33px;
+  }
+
+  .timeline-item.with-inline-detail::after {
+    top: 33px;
   }
 
   .tree-entry-grid,
