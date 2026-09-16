@@ -46,3 +46,22 @@ test("keeps timeline location and pet category support", async () => {
   assert.match(schema, /text\("location"\)\.notNull\(\)\.default\(""\)/);
   assert.match(app, /TimelineEventDetailPanel/);
 });
+
+test("keeps calendar time hidden and member auto-add options wired", async () => {
+  const [app, familyData] = await Promise.all([
+    readFile(new URL("../app/FamilyApp.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/family-data.ts", import.meta.url), "utf8"),
+  ]);
+
+  assert.doesNotMatch(app, /時刻（日本時間）/);
+  assert.doesNotMatch(app, /終日/);
+  assert.doesNotMatch(app, /name="eventTime"/);
+  assert.match(app, /aria-controls="tree-add-form"/);
+  assert.match(app, /addBirthTimeline/);
+  assert.match(app, /addBirthCalendar/);
+  assert.match(app, /addDeathTimeline/);
+  assert.match(app, /addDeathCalendar/);
+  assert.match(familyData, /eventTime: null/);
+  assert.match(familyData, /createAutomaticFamilyEvents/);
+  assert.match(familyData, /年・月・日をすべて入力してください/);
+});

@@ -574,6 +574,7 @@ function TreeSection({
   onSubmit: (form: HTMLFormElement, doneMessage: string) => Promise<boolean>;
 }) {
   const [selectedPersonId, setSelectedPersonId] = useState<number | null>(null);
+  const [isAddOpen, setIsAddOpen] = useState(false);
   const familyMap = useMemo(
     () => new Map(data.familyMembers.map((person) => [person.id, person])),
     [data.familyMembers],
@@ -599,44 +600,32 @@ function TreeSection({
         <h1>家族のつながりを見る</h1>
       </div>
 
-      <div className="panel tree-entry-panel">
-        <div className="tree-entry-block">
-          <h2>人物を追加</h2>
-          <form
-            className="entry-form tree-add-form"
-            onSubmit={async (event) => {
-              event.preventDefault();
-              await onSubmit(event.currentTarget, "人物を登録しました。");
-            }}
-          >
-            <input name="action" type="hidden" value="saveMember" />
-            <div className="name-fields">
-              <label>
-                <span>姓</span>
-                <input name="familyName" required type="text" />
-              </label>
-              <label>
-                <span>名</span>
-                <input name="givenName" required type="text" />
-              </label>
-            </div>
-            <DateTriple label="生年月日" prefix="birth" source={null} />
-            <DateTriple label="没年月日" prefix="death" source={null} />
-            <label>
-              <span>写真</span>
-              <input accept="image/*" name="photo" type="file" />
-            </label>
-            <label>
-              <span>メモ</span>
-              <textarea name="memo" rows={4} />
-            </label>
-            <div className="form-actions">
-              <button className="primary-button" disabled={isSaving} type="submit">
-                登録
-              </button>
-            </div>
-          </form>
-        </div>
+      <div
+        className={
+          isAddOpen
+            ? "panel timeline-add-panel tree-entry-panel open"
+            : "panel timeline-add-panel tree-entry-panel"
+        }
+      >
+        <button
+          aria-controls="tree-add-form"
+          aria-expanded={isAddOpen}
+          className="timeline-add-toggle"
+          onClick={() => setIsAddOpen((current) => !current)}
+          type="button"
+        >
+          <span>人物を追加</span>
+          <ChevronDown aria-hidden="true" />
+        </button>
+        {isAddOpen ? (
+          <div className="timeline-add-content tree-add-content" id="tree-add-form">
+            <NewFamilyMemberForm
+              isSaving={isSaving}
+              onSaved={() => setIsAddOpen(false)}
+              onSubmit={onSubmit}
+            />
+          </div>
+        ) : null}
       </div>
 
       <div
@@ -670,6 +659,88 @@ function TreeSection({
         ) : null}
       </div>
     </section>
+  );
+}
+
+function NewFamilyMemberForm({
+  isSaving,
+  onSaved,
+  onSubmit,
+}: {
+  isSaving: boolean;
+  onSaved: () => void;
+  onSubmit: (form: HTMLFormElement, doneMessage: string) => Promise<boolean>;
+}) {
+  const [showDeathOptions, setShowDeathOptions] = useState(false);
+
+  return (
+    <form
+      className="entry-form tree-add-form"
+      onInput={(event) => {
+        const target = event.target;
+        if (target instanceof HTMLInputElement && target.name.startsWith("death")) {
+          setShowDeathOptions(hasAnyDateInput(event.currentTarget, "death"));
+        }
+      }}
+      onSubmit={async (event) => {
+        event.preventDefault();
+        const saved = await onSubmit(event.currentTarget, "人物を登録しました。");
+        if (saved) {
+          setShowDeathOptions(false);
+          onSaved();
+        }
+      }}
+    >
+      <input name="action" type="hidden" value="saveMember" />
+      <div className="name-fields">
+        <label>
+          <span>姓</span>
+          <input name="familyName" required type="text" />
+        </label>
+        <label>
+          <span>名</span>
+          <input name="givenName" required type="text" />
+        </label>
+      </div>
+      <DateTriple label="生年月日" prefix="birth" source={null} />
+      <DateTriple label="没年月日" prefix="death" source={null} />
+      <fieldset className="auto-add-options">
+        <legend>関連する記録</legend>
+        <label className="checkbox-option">
+          <input name="addBirthTimeline" type="checkbox" />
+          <span>誕生を年表に追加する</span>
+        </label>
+        <label className="checkbox-option">
+          <input name="addBirthCalendar" type="checkbox" />
+          <span>誕生日をカレンダーに追加する</span>
+        </label>
+        {showDeathOptions ? (
+          <>
+            <label className="checkbox-option">
+              <input name="addDeathTimeline" type="checkbox" />
+              <span>命日を年表に追加する</span>
+            </label>
+            <label className="checkbox-option">
+              <input name="addDeathCalendar" type="checkbox" />
+              <span>命日をカレンダーに追加する</span>
+            </label>
+          </>
+        ) : null}
+      </fieldset>
+      <label>
+        <span>写真</span>
+        <input accept="image/*" name="photo" type="file" />
+      </label>
+      <label>
+        <span>メモ</span>
+        <textarea name="memo" rows={4} />
+      </label>
+      <div className="form-actions">
+        <button className="primary-button" disabled={isSaving} type="submit">
+          登録
+        </button>
+      </div>
+    </form>
   );
 }
 
@@ -1052,10 +1123,6 @@ function CalendarSection({
             <input defaultValue={editing?.eventDate ?? ""} name="eventDate" required type="date" />
           </label>
           <label>
-            <span>時刻（日本時間）</span>
-            <input defaultValue={editing?.eventTime ?? ""} name="eventTime" type="time" />
-          </label>
-          <label>
             <span>場所</span>
             <input defaultValue={editing?.location ?? ""} name="location" type="text" />
           </label>
@@ -1121,11 +1188,9 @@ function CalendarSection({
               <article className="event-card" key={`${event.id}-${occurrenceDate}`}>
                 <time>{formatFullDate(occurrenceDate)}</time>
                 <h3>{event.title}</h3>
-                <p className="meta-line">
-                  {event.eventTime ? formatVisitorLocalTime(occurrenceDate, event.eventTime) : "終日"}
-                  {event.location ? ` / ${event.location}` : ""}
-                  {event.recurrence === "annual" ? " / 毎年" : ""}
-                </p>
+                {calendarEventMeta(event) ? (
+                  <p className="meta-line">{calendarEventMeta(event)}</p>
+                ) : null}
                 <span className="category-badge small">{event.category}</span>
                 {event.description ? <p>{event.description}</p> : null}
                 <div className="item-actions">
@@ -1199,6 +1264,13 @@ function DateTriple({
       />
     </fieldset>
   );
+}
+
+function hasAnyDateInput(form: HTMLFormElement, prefix: "birth" | "death") {
+  return ["Year", "Month", "Day"].some((suffix) => {
+    const field = form.elements.namedItem(`${prefix}${suffix}`);
+    return field instanceof HTMLInputElement && field.value.trim().length > 0;
+  });
 }
 
 function SelectedRelationshipList({
@@ -1737,6 +1809,15 @@ function formatFullDate(dateText: string) {
   return `${year}年${month}月${day}日`;
 }
 
+function calendarEventMeta(event: CalendarEvent) {
+  return [
+    event.location,
+    event.recurrence === "annual" ? "毎年" : "",
+  ]
+    .filter(Boolean)
+    .join(" / ");
+}
+
 function eventsForMonth(events: CalendarEvent[], monthCursor: Date) {
   const year = monthCursor.getFullYear();
   const month = monthCursor.getMonth() + 1;
@@ -1752,14 +1833,6 @@ function eventsForMonth(events: CalendarEvent[], monthCursor: Date) {
     })
     .filter((item) => item.occurrenceMonth === month)
     .sort((left, right) => left.occurrenceDate.localeCompare(right.occurrenceDate));
-}
-
-function formatVisitorLocalTime(dateText: string, timeText: string) {
-  const date = new Date(`${dateText}T${timeText}:00+09:00`);
-  return new Intl.DateTimeFormat("ja-JP", {
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
 }
 
 function pad2(value: number) {

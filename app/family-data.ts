@@ -21,6 +21,12 @@ type MediaBucket = {
   ): Promise<unknown>;
 };
 
+type ProfileDate = {
+  year: number | null;
+  month: number | null;
+  day: number | null;
+};
+
 let schemaReady = false;
 
 export async function ensureFamilySchema() {
@@ -182,13 +188,17 @@ export async function saveFamilyMember(formData: FormData) {
   const id = optionalId(formData.get("id"));
   const birth = parseProfileDate(formData, "birth");
   const death = parseProfileDate(formData, "death");
-  const photo = await maybeStoreImage(formData.get("photo"), "people");
   const now = new Date().toISOString();
   const familyName = requiredText(formData, "familyName", "姓");
   const givenName = requiredText(formData, "givenName", "名");
+  const name = `${familyName}${givenName}`;
+
+  if (!id) validateAutomaticFamilyEvents(formData, birth, death);
+
+  const photo = await maybeStoreImage(formData.get("photo"), "people");
 
   const values: typeof familyMembers.$inferInsert = {
-    name: `${familyName}${givenName}`,
+    name,
     familyName,
     givenName,
     birthYear: birth.year ?? undefined,
@@ -214,6 +224,144 @@ export async function saveFamilyMember(formData: FormData) {
   }
 
   await db.insert(familyMembers).values(values);
+  await createAutomaticFamilyEvents(formData, name, birth, death, now);
+}
+
+function validateAutomaticFamilyEvents(
+  formData: FormData,
+  birth: ProfileDate,
+  death: ProfileDate,
+) {
+  if (isChecked(formData, "addBirthTimeline")) {
+    ensureTimelineProfileDate(birth, "誕生", "生年月日");
+  }
+  if (isChecked(formData, "addBirthCalendar")) {
+    ensureFullProfileDate(birth, "誕生日", "生年月日");
+  }
+  if (isChecked(formData, "addDeathTimeline")) {
+    ensureTimelineProfileDate(death, "命日", "没年月日");
+  }
+  if (isChecked(formData, "addDeathCalendar")) {
+    ensureFullProfileDate(death, "命日", "没年月日");
+  }
+}
+
+async function createAutomaticFamilyEvents(
+  formData: FormData,
+  name: string,
+  birth: ProfileDate,
+  death: ProfileDate,
+  now: string,
+) {
+  const db = getDb();
+  const automaticTimelineEvents: (typeof timelineEvents.$inferInsert)[] = [];
+  const automaticCalendarEvents: (typeof calendarEvents.$inferInsert)[] = [];
+
+  if (isChecked(formData, "addBirthTimeline")) {
+    automaticTimelineEvents.push(
+      automaticTimelineEvent(`${name}誕生`, "出生", birth, now),
+    );
+  }
+  if (isChecked(formData, "addDeathTimeline")) {
+    automaticTimelineEvents.push(
+      automaticTimelineEvent(`${name}逝去`, "逝去", death, now),
+    );
+  }
+  if (isChecked(formData, "addBirthCalendar")) {
+    automaticCalendarEvents.push(
+      automaticCalendarEvent(`${name}の誕生日`, "誕生日", birth, now),
+    );
+  }
+  if (isChecked(formData, "addDeathCalendar")) {
+    automaticCalendarEvents.push(
+      automaticCalendarEvent(`${name}の命日`, "法事", death, now),
+    );
+  }
+
+  if (automaticTimelineEvents.length > 0) {
+    await db.insert(timelineEvents).values(automaticTimelineEvents);
+  }
+  if (automaticCalendarEvents.length > 0) {
+    await db.insert(calendarEvents).values(automaticCalendarEvents);
+  }
+}
+
+function automaticTimelineEvent(
+  title: string,
+  category: string,
+  date: ProfileDate,
+  now: string,
+): typeof timelineEvents.$inferInsert {
+  const year = ensureTimelineProfileDate(date, title, "日付");
+
+  return {
+    title,
+    dateYear: year,
+    dateMonth: date.month ?? undefined,
+    dateDay: date.day ?? undefined,
+    datePrecision: date.day ? "day" : date.month ? "month" : "year",
+    category,
+    location: "",
+    description: "",
+    updatedAt: now,
+  };
+}
+
+function automaticCalendarEvent(
+  title: string,
+  category: string,
+  date: ProfileDate,
+  now: string,
+): typeof calendarEvents.$inferInsert {
+  const eventDate = fullProfileDate(date, title, "日付");
+
+  return {
+    title,
+    eventDate,
+    eventTime: null,
+    location: "",
+    category,
+    description: "",
+    recurrence: "annual",
+    updatedAt: now,
+  };
+}
+
+function ensureTimelineProfileDate(
+  date: ProfileDate,
+  eventLabel: string,
+  fieldLabel: string,
+) {
+  if (!date.year) {
+    throw new Error(
+      `${eventLabel}を年表に追加するには、${fieldLabel}の年を入力してください。`,
+    );
+  }
+
+  return date.year;
+}
+
+function ensureFullProfileDate(
+  date: ProfileDate,
+  eventLabel: string,
+  fieldLabel: string,
+) {
+  if (!date.year || !date.month || !date.day) {
+    throw new Error(
+      `${eventLabel}をカレンダーに追加するには、${fieldLabel}の年・月・日をすべて入力してください。`,
+    );
+  }
+
+  return {
+    day: date.day,
+    month: date.month,
+    year: date.year,
+  };
+}
+
+function fullProfileDate(date: ProfileDate, eventLabel: string, fieldLabel: string) {
+  const { day, month, year } = ensureFullProfileDate(date, eventLabel, fieldLabel);
+  return `${year}-${pad2(month)}-${pad2(day)}`;
 }
 
 async function ensureTimelineEventLocationColumn(d1: D1Database) {
@@ -320,7 +468,7 @@ export async function saveCalendarEvent(formData: FormData) {
   const values: typeof calendarEvents.$inferInsert = {
     title: requiredText(formData, "title", "タイトル"),
     eventDate: requiredDate(formData.get("eventDate"), "日付"),
-    eventTime: optionalTime(formData.get("eventTime")),
+    eventTime: null,
     location: plainText(formData.get("location"), 200),
     category: calendarCategory(formData.get("category")),
     description: plainText(formData.get("description"), 5000),
@@ -466,6 +614,14 @@ function stringValue(value: FormDataEntryValue | null) {
   return typeof value === "string" ? value : "";
 }
 
+function isChecked(formData: FormData, key: string) {
+  return formData.get(key) === "on";
+}
+
+function pad2(value: number) {
+  return `${value}`.padStart(2, "0");
+}
+
 function optionalId(value: FormDataEntryValue | null) {
   const id = optionalNumber(value, 1, 1_000_000_000);
   return id ?? null;
@@ -504,13 +660,6 @@ function requiredDate(value: FormDataEntryValue | null, label: string) {
   }
   const [year, month, day] = text.split("-").map(Number);
   ensureValidDate(year, month, day);
-  return text;
-}
-
-function optionalTime(value: FormDataEntryValue | null) {
-  const text = stringValue(value);
-  if (!text) return null;
-  if (!/^\d{2}:\d{2}$/.test(text)) throw new Error("時刻の値が正しくありません。");
   return text;
 }
 

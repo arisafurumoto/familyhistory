@@ -363,6 +363,44 @@ textarea:focus {
   grid-column: 1 / -1;
 }
 
+.auto-add-options {
+  background: rgba(239, 217, 139, 0.16);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  padding: 14px;
+}
+
+.auto-add-options legend {
+  grid-column: 1 / -1;
+}
+
+.checkbox-option {
+  align-items: center;
+  background: #fffaf1;
+  border: 1px solid rgba(47, 43, 35, 0.13);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: auto minmax(0, 1fr);
+  min-height: 44px;
+  padding: 10px 12px;
+}
+
+.checkbox-option input {
+  accent-color: var(--red);
+  height: 18px;
+  width: 18px;
+}
+
+.checkbox-option span {
+  color: var(--foreground);
+  font-size: 14px;
+  font-weight: 800;
+}
+
 .name-fields {
   display: grid;
   gap: 10px;
@@ -811,6 +849,7 @@ textarea:focus {
 }
 
 .tree-add-form .name-fields,
+.tree-add-form .auto-add-options,
 .tree-add-form .form-actions {
   grid-column: 1 / -1;
 }
