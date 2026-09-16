@@ -39,6 +39,8 @@ export type TimelineEvent = {
 export type FamilyMember = {
   id: number;
   name: string;
+  familyName: string;
+  givenName: string;
   birthYear: number | null;
   birthMonth: number | null;
   birthDay: number | null;

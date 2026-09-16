@@ -48,6 +48,8 @@ export async function ensureFamilySchema() {
     d1.prepare(`CREATE TABLE IF NOT EXISTS family_members (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
+      family_name TEXT NOT NULL DEFAULT '',
+      given_name TEXT NOT NULL DEFAULT '',
       birth_year INTEGER,
       birth_month INTEGER,
       birth_day INTEGER,
@@ -63,6 +65,8 @@ export async function ensureFamilySchema() {
     )`),
     d1.prepare(`CREATE INDEX IF NOT EXISTS idx_family_members_name
       ON family_members (name)`),
+    d1.prepare(`CREATE INDEX IF NOT EXISTS idx_family_members_split_name
+      ON family_members (family_name, given_name)`),
     d1.prepare(`CREATE TABLE IF NOT EXISTS family_relationships (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       person_id INTEGER NOT NULL,
@@ -93,6 +97,7 @@ export async function ensureFamilySchema() {
     d1.prepare("PRAGMA optimize"),
   ]);
 
+  await ensureFamilyMemberNameColumns(d1);
   schemaReady = true;
 }
 
@@ -111,7 +116,14 @@ export async function getFamilyData(): Promise<FamilyData> {
           asc(timelineEvents.dateDay),
           asc(timelineEvents.id),
         ),
-      db.select().from(familyMembers).orderBy(asc(familyMembers.name)),
+      db
+        .select()
+        .from(familyMembers)
+        .orderBy(
+          asc(familyMembers.familyName),
+          asc(familyMembers.givenName),
+          asc(familyMembers.name),
+        ),
       db.select().from(familyRelationships).orderBy(asc(familyRelationships.id)),
       db
         .select()
@@ -169,9 +181,13 @@ export async function saveFamilyMember(formData: FormData) {
   const death = parseProfileDate(formData, "death");
   const photo = await maybeStoreImage(formData.get("photo"), "people");
   const now = new Date().toISOString();
+  const familyName = requiredText(formData, "familyName", "姓");
+  const givenName = requiredText(formData, "givenName", "名");
 
   const values: typeof familyMembers.$inferInsert = {
-    name: requiredText(formData, "name", "名前"),
+    name: `${familyName}${givenName}`,
+    familyName,
+    givenName,
     birthYear: birth.year ?? undefined,
     birthMonth: birth.month ?? undefined,
     birthDay: birth.day ?? undefined,
@@ -195,6 +211,37 @@ export async function saveFamilyMember(formData: FormData) {
   }
 
   await db.insert(familyMembers).values(values);
+}
+
+async function ensureFamilyMemberNameColumns(d1: D1Database) {
+  const tableInfo = await d1.prepare("PRAGMA table_info(family_members)").all();
+  const columns = new Set(
+    (tableInfo.results as Array<{ name: string }>).map((column) => column.name),
+  );
+  const statements: D1PreparedStatement[] = [];
+
+  if (!columns.has("family_name")) {
+    statements.push(
+      d1.prepare(
+        "ALTER TABLE family_members ADD COLUMN family_name TEXT NOT NULL DEFAULT ''",
+      ),
+    );
+  }
+  if (!columns.has("given_name")) {
+    statements.push(
+      d1.prepare(
+        "ALTER TABLE family_members ADD COLUMN given_name TEXT NOT NULL DEFAULT ''",
+      ),
+    );
+  }
+  if (statements.length > 0) await d1.batch(statements);
+
+  await d1
+    .prepare(
+      `CREATE INDEX IF NOT EXISTS idx_family_members_split_name
+      ON family_members (family_name, given_name)`,
+    )
+    .run();
 }
 
 export async function saveFamilyRelationship(formData: FormData) {

@@ -295,10 +295,26 @@ function TreeSection({
           >
             <input name="action" type="hidden" value="saveMember" />
             {editing ? <input name="id" type="hidden" value={editing.id} /> : null}
-            <label>
-              <span>名前</span>
-              <input defaultValue={editing?.name ?? ""} name="name" required type="text" />
-            </label>
+            <div className="name-fields">
+              <label>
+                <span>姓</span>
+                <input
+                  defaultValue={nameParts(editing).familyName}
+                  name="familyName"
+                  required
+                  type="text"
+                />
+              </label>
+              <label>
+                <span>名</span>
+                <input
+                  defaultValue={nameParts(editing).givenName}
+                  name="givenName"
+                  required
+                  type="text"
+                />
+              </label>
+            </div>
             <DateTriple label="生年月日" prefix="birth" source={editing} />
             <DateTriple label="没年月日" prefix="death" source={editing} />
             <label>
@@ -358,7 +374,7 @@ function TreeSection({
                 >
                   {data.familyMembers.map((person) => (
                     <option key={person.id} value={person.id}>
-                      {person.name}
+                      {displayName(person)}
                     </option>
                   ))}
                 </select>
@@ -578,7 +594,7 @@ function PersonSelect({
         <option value="">選択</option>
         {members.map((person) => (
           <option key={person.id} value={person.id}>
-            {person.name}
+            {displayName(person)}
           </option>
         ))}
       </select>
@@ -606,14 +622,16 @@ function PersonCard({ person, primary = false }: { person: FamilyMember; primary
   return (
     <article className={primary ? "person-card primary-person" : "person-card"}>
       {person.photoKey ? (
-        <img alt={person.photoName ?? person.name} src={`/api/photos/${person.photoKey}`} />
+        <img alt={person.photoName ?? displayName(person)} src={`/api/photos/${person.photoKey}`} />
       ) : (
-        <span className="person-initial">{person.name.slice(0, 1)}</span>
+        <span className="person-initial">{displayName(person).slice(0, 1)}</span>
       )}
       <div>
-        <h4>{person.name}</h4>
+        <h4>{displayName(person)}</h4>
         {formatPersonLife(person) ? <p>{formatPersonLife(person)}</p> : null}
         <div className="profile-tags">
+          {person.familyName ? <span>姓: {person.familyName}</span> : null}
+          {person.givenName ? <span>名: {person.givenName}</span> : null}
           {sign ? <span>{sign}</span> : null}
           {eto ? <span>{eto}</span> : null}
         </div>
@@ -621,6 +639,27 @@ function PersonCard({ person, primary = false }: { person: FamilyMember; primary
       </div>
     </article>
   );
+}
+
+function displayName(person: FamilyMember) {
+  if (person.familyName || person.givenName) {
+    return `${person.familyName}${person.givenName}`;
+  }
+  return person.name;
+}
+
+function nameParts(person: FamilyMember | null) {
+  if (!person) return { familyName: "", givenName: "" };
+  if (person.familyName || person.givenName) {
+    return {
+      familyName: person.familyName,
+      givenName: person.givenName,
+    };
+  }
+
+  const [familyName, ...rest] = person.name.trim().split(/\s+/);
+  if (rest.length > 0) return { familyName, givenName: rest.join("") };
+  return { familyName: "", givenName: person.name };
 }
 
 function EmptyState({ title }: { title: string }) {

@@ -279,6 +279,12 @@ textarea:focus {
   grid-column: 1 / -1;
 }
 
+.name-fields {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .form-actions {
   display: flex;
   gap: 10px;
@@ -684,6 +690,10 @@ textarea:focus {
   }
 
   .date-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .name-fields {
     grid-template-columns: 1fr;
   }
 

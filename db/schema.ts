@@ -32,6 +32,8 @@ export const familyMembers = sqliteTable(
   {
     id: integer("id").primaryKey({ autoIncrement: true }),
     name: text("name").notNull(),
+    familyName: text("family_name").notNull().default(""),
+    givenName: text("given_name").notNull().default(""),
     birthYear: integer("birth_year"),
     birthMonth: integer("birth_month"),
     birthDay: integer("birth_day"),
@@ -45,7 +47,10 @@ export const familyMembers = sqliteTable(
     createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
     updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   },
-  (table) => [index("idx_family_members_name").on(table.name)],
+  (table) => [
+    index("idx_family_members_name").on(table.name),
+    index("idx_family_members_split_name").on(table.familyName, table.givenName),
+  ],
 );
 
 export const familyRelationships = sqliteTable(
