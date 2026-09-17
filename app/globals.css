@@ -407,6 +407,109 @@ textarea:focus {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.photo-crop-field {
+  display: grid;
+  gap: 8px;
+}
+
+.photo-crop-label {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.photo-crop-file-input {
+  display: none;
+}
+
+.photo-select-button {
+  justify-self: start;
+}
+
+.photo-crop-editor {
+  background: #fffaf1;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+}
+
+.photo-crop-preview {
+  aspect-ratio: 1;
+  background: #2b2925;
+  border-radius: 8px;
+  cursor: grab;
+  max-width: 320px;
+  overflow: hidden;
+  position: relative;
+  touch-action: none;
+  width: 100%;
+}
+
+.photo-crop-preview:active {
+  cursor: grabbing;
+}
+
+.photo-crop-preview img {
+  max-width: none;
+  pointer-events: none;
+  position: absolute;
+  user-select: none;
+}
+
+.photo-crop-frame {
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  box-shadow: inset 0 0 0 1px rgba(35, 33, 29, 0.18);
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+}
+
+.photo-crop-controls {
+  display: grid;
+  gap: 10px;
+}
+
+.photo-crop-control {
+  align-items: center;
+  grid-template-columns: 46px minmax(0, 1fr);
+}
+
+.photo-crop-control input[type="range"] {
+  accent-color: var(--red);
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+
+.photo-crop-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.photo-crop-actions svg,
+.photo-select-button svg {
+  height: 17px;
+  margin-right: 6px;
+  width: 17px;
+}
+
+.photo-crop-actions .text-button {
+  gap: 5px;
+  min-height: 40px;
+  padding: 8px 2px;
+}
+
+.photo-crop-actions .text-button svg {
+  margin-right: 0;
+}
+
+.photo-crop-error {
+  margin: 0;
+}
+
 .form-actions {
   display: flex;
   gap: 10px;

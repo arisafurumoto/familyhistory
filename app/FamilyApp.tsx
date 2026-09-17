@@ -14,10 +14,24 @@ import {
   PawPrint,
   PartyPopper,
   Plane,
+  RotateCcw,
   School,
+  Upload,
+  X,
   type LucideIcon,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import {
+  forwardRef,
+  type ChangeEvent,
+  type PointerEvent as ReactPointerEvent,
+  type SyntheticEvent,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type {
   CalendarEvent,
   FamilyData,
@@ -32,6 +46,21 @@ type ActiveView = "timeline" | "tree" | "calendar";
 type FamilyAppProps = {
   activeView: ActiveView;
   initialData: FamilyData;
+};
+
+type FamilyFormDataBuilder = (
+  form: HTMLFormElement,
+) => FormData | Promise<FormData>;
+
+type FamilyFormSubmit = (
+  form: HTMLFormElement,
+  doneMessage: string,
+  formDataBuilder?: FamilyFormDataBuilder,
+) => Promise<boolean>;
+
+type PhotoCropInputHandle = {
+  appendCroppedPhoto: (formData: FormData) => Promise<void>;
+  reset: () => void;
 };
 
 const navItems = [
@@ -87,14 +116,22 @@ export function FamilyApp({ activeView, initialData }: FamilyAppProps) {
   const [message, setMessage] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
-  async function submitFamilyForm(form: HTMLFormElement, doneMessage: string) {
+  async function submitFamilyForm(
+    form: HTMLFormElement,
+    doneMessage: string,
+    formDataBuilder?: FamilyFormDataBuilder,
+  ) {
     setIsSaving(true);
     setMessage("処理中です。");
 
     try {
+      const body = formDataBuilder
+        ? await formDataBuilder(form)
+        : new FormData(form);
+
       const response = await fetch("/api/family", {
         method: "POST",
-        body: new FormData(form),
+        body,
       });
       const payload = (await response.json()) as {
         data?: FamilyData;
@@ -173,7 +210,7 @@ function TimelineSection({
 }: {
   data: FamilyData;
   isSaving: boolean;
-  onSubmit: (form: HTMLFormElement, doneMessage: string) => Promise<boolean>;
+  onSubmit: FamilyFormSubmit;
 }) {
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -313,7 +350,7 @@ function TimelineEventForm({
   event: TimelineEvent | null;
   isSaving: boolean;
   onCancel?: () => void;
-  onSubmit: (form: HTMLFormElement, doneMessage: string) => Promise<boolean>;
+  onSubmit: FamilyFormSubmit;
   submitLabel: string;
 }) {
   return (
@@ -416,7 +453,7 @@ function TimelineEventDetailPanel({
   isSaving: boolean;
   onClose: () => void;
   onDeleted: () => void;
-  onSubmit: (form: HTMLFormElement, doneMessage: string) => Promise<boolean>;
+  onSubmit: FamilyFormSubmit;
   variant: "desktop" | "inline";
 }) {
   const [isEditing, setIsEditing] = useState(false);
@@ -571,7 +608,7 @@ function TreeSection({
 }: {
   data: FamilyData;
   isSaving: boolean;
-  onSubmit: (form: HTMLFormElement, doneMessage: string) => Promise<boolean>;
+  onSubmit: FamilyFormSubmit;
 }) {
   const [selectedPersonId, setSelectedPersonId] = useState<number | null>(null);
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -662,6 +699,306 @@ function TreeSection({
   );
 }
 
+type PhotoCropOffset = {
+  x: number;
+  y: number;
+};
+
+type PhotoCropSize = {
+  height: number;
+  width: number;
+};
+
+const PHOTO_CROP_SIZE = 512;
+const PHOTO_CROP_MAX_ZOOM = 4;
+
+const PhotoCropInput = forwardRef<PhotoCropInputHandle, { label: string }>(
+  function PhotoCropInput({ label }, ref) {
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const previewRef = useRef<HTMLDivElement>(null);
+    const previewUrlRef = useRef("");
+    const dragRef = useRef<{
+      origin: PhotoCropOffset;
+      pointerId: number;
+      startX: number;
+      startY: number;
+    } | null>(null);
+    const [sourceFile, setSourceFile] = useState<File | null>(null);
+    const [previewUrl, setPreviewUrl] = useState("");
+    const [imageSize, setImageSize] = useState<PhotoCropSize>({
+      height: 0,
+      width: 0,
+    });
+    const [zoom, setZoom] = useState(1);
+    const [offset, setOffset] = useState<PhotoCropOffset>({ x: 0, y: 0 });
+    const [error, setError] = useState("");
+
+    const offsetBounds = useMemo(
+      () => photoCropOffsetBounds(imageSize, zoom),
+      [imageSize, zoom],
+    );
+
+    const resetCrop = useCallback(() => {
+      setZoom(1);
+      setOffset({ x: 0, y: 0 });
+    }, []);
+
+    const revokePreviewUrl = useCallback(() => {
+      if (!previewUrlRef.current) return;
+      URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = "";
+    }, []);
+
+    const resetSelection = useCallback(() => {
+      revokePreviewUrl();
+      setSourceFile(null);
+      setPreviewUrl("");
+      setImageSize({ height: 0, width: 0 });
+      setError("");
+      resetCrop();
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }, [resetCrop, revokePreviewUrl]);
+
+    useEffect(() => {
+      return revokePreviewUrl;
+    }, [revokePreviewUrl]);
+
+    useImperativeHandle(
+      ref,
+      () => ({
+        async appendCroppedPhoto(formData) {
+          if (!sourceFile) return;
+          const croppedPhoto = await createCroppedPhotoFile(sourceFile, {
+            offset,
+            zoom,
+          });
+          formData.set("photo", croppedPhoto);
+        },
+        reset: resetSelection,
+      }),
+      [offset, resetSelection, sourceFile, zoom],
+    );
+
+    function openFilePicker() {
+      if (!fileInputRef.current) return;
+      fileInputRef.current.value = "";
+      fileInputRef.current.click();
+    }
+
+    function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+      const nextFile = event.currentTarget.files?.[0] ?? null;
+      if (!nextFile) return;
+
+      if (!nextFile.type.startsWith("image/")) {
+        resetSelection();
+        setError("画像ファイルを選んでください。");
+        return;
+      }
+
+      revokePreviewUrl();
+      const nextPreviewUrl = URL.createObjectURL(nextFile);
+      previewUrlRef.current = nextPreviewUrl;
+      setSourceFile(nextFile);
+      setPreviewUrl(nextPreviewUrl);
+      setImageSize({ height: 0, width: 0 });
+      setError("");
+      resetCrop();
+    }
+
+    function handleImageLoad(event: SyntheticEvent<HTMLImageElement>) {
+      setImageSize({
+        height: event.currentTarget.naturalHeight,
+        width: event.currentTarget.naturalWidth,
+      });
+      resetCrop();
+    }
+
+    function handleImageError() {
+      setImageSize({ height: 0, width: 0 });
+      setError("画像を読み込めませんでした。別の画像を選んでください。");
+    }
+
+    function handlePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+      if (!sourceFile || !imageSize.width || !imageSize.height) return;
+      dragRef.current = {
+        origin: offset,
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+      };
+      event.currentTarget.setPointerCapture(event.pointerId);
+      event.preventDefault();
+    }
+
+    function handlePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+      const drag = dragRef.current;
+      const preview = previewRef.current;
+      if (!drag || drag.pointerId !== event.pointerId || !preview) return;
+
+      const bounds = preview.getBoundingClientRect();
+      if (!bounds.width || !bounds.height) return;
+
+      const nextOffset = {
+        x: drag.origin.x + ((event.clientX - drag.startX) / bounds.width) * 100,
+        y: drag.origin.y + ((event.clientY - drag.startY) / bounds.height) * 100,
+      };
+      setOffset(clampPhotoCropOffset(nextOffset, offsetBounds));
+    }
+
+    function handlePointerUp(event: ReactPointerEvent<HTMLDivElement>) {
+      if (dragRef.current?.pointerId !== event.pointerId) return;
+      dragRef.current = null;
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+    }
+
+    function handleZoomChange(event: ChangeEvent<HTMLInputElement>) {
+      const nextZoom = Number(event.currentTarget.value);
+      const nextBounds = photoCropOffsetBounds(imageSize, nextZoom);
+      setZoom(nextZoom);
+      setOffset((current) => clampPhotoCropOffset(current, nextBounds));
+    }
+
+    const isImageReady = Boolean(imageSize.width && imageSize.height);
+    const isLandscape = imageSize.width >= imageSize.height;
+    const previewImageStyle = isImageReady
+      ? {
+          height: isLandscape
+            ? "100%"
+            : `${(imageSize.height / imageSize.width) * 100}%`,
+          left: `calc(50% + ${offset.x}%)`,
+          top: `calc(50% + ${offset.y}%)`,
+          transform: `translate(-50%, -50%) scale(${zoom})`,
+          width: isLandscape
+            ? `${(imageSize.width / imageSize.height) * 100}%`
+            : "100%",
+        }
+      : undefined;
+
+    return (
+      <div className="photo-crop-field">
+        <span className="photo-crop-label">{label}</span>
+        <input
+          ref={fileInputRef}
+          accept="image/*"
+          aria-label={label}
+          className="photo-crop-file-input"
+          onChange={handleFileChange}
+          type="file"
+        />
+
+        {sourceFile ? (
+          <div className="photo-crop-editor">
+            <div
+              ref={previewRef}
+              aria-label="切り抜きプレビュー"
+              className="photo-crop-preview"
+              onPointerCancel={handlePointerUp}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              role="img"
+            >
+              {previewUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  alt=""
+                  draggable={false}
+                  onError={handleImageError}
+                  onLoad={handleImageLoad}
+                  src={previewUrl}
+                  style={previewImageStyle}
+                />
+              ) : null}
+              <span aria-hidden="true" className="photo-crop-frame" />
+            </div>
+
+            <div className="photo-crop-controls">
+              <label className="photo-crop-control">
+                <span>拡大</span>
+                <input
+                  disabled={!isImageReady}
+                  max={PHOTO_CROP_MAX_ZOOM}
+                  min="1"
+                  onChange={handleZoomChange}
+                  step="0.01"
+                  type="range"
+                  value={zoom}
+                />
+              </label>
+              <label className="photo-crop-control">
+                <span>左右</span>
+                <input
+                  disabled={!isImageReady || offsetBounds.x === 0}
+                  max={offsetBounds.x}
+                  min={-offsetBounds.x}
+                  onChange={(event) =>
+                    setOffset((current) => ({
+                      ...current,
+                      x: clampNumber(
+                        Number(event.currentTarget.value),
+                        -offsetBounds.x,
+                        offsetBounds.x,
+                      ),
+                    }))
+                  }
+                  step="0.1"
+                  type="range"
+                  value={offset.x}
+                />
+              </label>
+              <label className="photo-crop-control">
+                <span>上下</span>
+                <input
+                  disabled={!isImageReady || offsetBounds.y === 0}
+                  max={offsetBounds.y}
+                  min={-offsetBounds.y}
+                  onChange={(event) =>
+                    setOffset((current) => ({
+                      ...current,
+                      y: clampNumber(
+                        Number(event.currentTarget.value),
+                        -offsetBounds.y,
+                        offsetBounds.y,
+                      ),
+                    }))
+                  }
+                  step="0.1"
+                  type="range"
+                  value={offset.y}
+                />
+              </label>
+            </div>
+
+            <div className="photo-crop-actions">
+              <button className="ghost-button" onClick={openFilePicker} type="button">
+                <Upload aria-hidden="true" />
+                選び直し
+              </button>
+              <button className="ghost-button" onClick={resetCrop} type="button">
+                <RotateCcw aria-hidden="true" />
+                リセット
+              </button>
+              <button className="text-button" onClick={resetSelection} type="button">
+                <X aria-hidden="true" />
+                選択解除
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button className="ghost-button photo-select-button" onClick={openFilePicker} type="button">
+            <Upload aria-hidden="true" />
+            写真を選ぶ
+          </button>
+        )}
+
+        {error ? <p className="form-error photo-crop-error">{error}</p> : null}
+      </div>
+    );
+  },
+);
+
 function NewFamilyMemberForm({
   isSaving,
   onSaved,
@@ -669,9 +1006,10 @@ function NewFamilyMemberForm({
 }: {
   isSaving: boolean;
   onSaved: () => void;
-  onSubmit: (form: HTMLFormElement, doneMessage: string) => Promise<boolean>;
+  onSubmit: FamilyFormSubmit;
 }) {
   const [showDeathOptions, setShowDeathOptions] = useState(false);
+  const photoCropRef = useRef<PhotoCropInputHandle>(null);
 
   return (
     <form
@@ -684,9 +1022,18 @@ function NewFamilyMemberForm({
       }}
       onSubmit={async (event) => {
         event.preventDefault();
-        const saved = await onSubmit(event.currentTarget, "人物を登録しました。");
+        const saved = await onSubmit(
+          event.currentTarget,
+          "人物を登録しました。",
+          async (form) => {
+            const formData = new FormData(form);
+            await photoCropRef.current?.appendCroppedPhoto(formData);
+            return formData;
+          },
+        );
         if (saved) {
           setShowDeathOptions(false);
+          photoCropRef.current?.reset();
           onSaved();
         }
       }}
@@ -727,10 +1074,7 @@ function NewFamilyMemberForm({
           </>
         ) : null}
       </fieldset>
-      <label>
-        <span>写真</span>
-        <input accept="image/*" name="photo" type="file" />
-      </label>
+      <PhotoCropInput ref={photoCropRef} label="写真" />
       <label>
         <span>メモ</span>
         <textarea name="memo" rows={4} />
@@ -757,13 +1101,14 @@ function PersonDetailPanel({
   isSaving: boolean;
   members: FamilyMember[];
   onDeleted: () => void;
-  onSubmit: (form: HTMLFormElement, doneMessage: string) => Promise<boolean>;
+  onSubmit: FamilyFormSubmit;
   person: FamilyMember;
   relationships: FamilyRelationship[];
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editingRelationship, setEditingRelationship] =
     useState<FamilyRelationship | null>(null);
+  const photoCropRef = useRef<PhotoCropInputHandle>(null);
   const sign = getZodiacSign(person.birthMonth, person.birthDay);
   const eto = getEto(person.birthYear);
   const birthDate = formatProfileDate(
@@ -803,6 +1148,11 @@ function PersonDetailPanel({
                 const saved = await onSubmit(
                   event.currentTarget,
                   "人物を保存しました。",
+                  async (form) => {
+                    const formData = new FormData(form);
+                    await photoCropRef.current?.appendCroppedPhoto(formData);
+                    return formData;
+                  },
                 );
                 if (saved) {
                   setIsEditing(false);
@@ -834,10 +1184,7 @@ function PersonDetailPanel({
               </div>
               <DateTriple label="生年月日" prefix="birth" source={person} />
               <DateTriple label="没年月日" prefix="death" source={person} />
-              <label>
-                <span>写真</span>
-                <input accept="image/*" name="photo" type="file" />
-              </label>
+              <PhotoCropInput ref={photoCropRef} label="写真" />
               <label>
                 <span>メモ</span>
                 <textarea defaultValue={person.memo ?? ""} name="memo" rows={4} />
@@ -964,7 +1311,7 @@ function PersonRelationshipForm({
   members: FamilyMember[];
   onCancel: () => void;
   onSaved: () => void;
-  onSubmit: (form: HTMLFormElement, doneMessage: string) => Promise<boolean>;
+  onSubmit: FamilyFormSubmit;
   person: FamilyMember;
 }) {
   const initialSentence = relationshipSentenceDefaultsForPerson(
@@ -1087,7 +1434,7 @@ function CalendarSection({
 }: {
   data: FamilyData;
   isSaving: boolean;
-  onSubmit: (form: HTMLFormElement, doneMessage: string) => Promise<boolean>;
+  onSubmit: FamilyFormSubmit;
 }) {
   const [editing, setEditing] = useState<CalendarEvent | null>(null);
   const [monthCursor, setMonthCursor] = useState(() => firstDayOfMonth(new Date()));
@@ -1225,6 +1572,109 @@ function CalendarSection({
   );
 }
 
+function photoCropOffsetBounds(size: PhotoCropSize, zoom: number) {
+  if (!size.width || !size.height) return { x: 0, y: 0 };
+
+  const baseScale = Math.max(
+    PHOTO_CROP_SIZE / size.width,
+    PHOTO_CROP_SIZE / size.height,
+  );
+  const drawnWidth = size.width * baseScale * zoom;
+  const drawnHeight = size.height * baseScale * zoom;
+
+  return {
+    x: ((drawnWidth - PHOTO_CROP_SIZE) / 2 / PHOTO_CROP_SIZE) * 100,
+    y: ((drawnHeight - PHOTO_CROP_SIZE) / 2 / PHOTO_CROP_SIZE) * 100,
+  };
+}
+
+function clampPhotoCropOffset(
+  offset: PhotoCropOffset,
+  bounds: PhotoCropOffset,
+) {
+  return {
+    x: clampNumber(offset.x, -bounds.x, bounds.x),
+    y: clampNumber(offset.y, -bounds.y, bounds.y),
+  };
+}
+
+function clampNumber(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
+async function createCroppedPhotoFile(
+  sourceFile: File,
+  crop: { offset: PhotoCropOffset; zoom: number },
+) {
+  const image = await loadImage(sourceFile);
+  const bounds = photoCropOffsetBounds(
+    { height: image.naturalHeight, width: image.naturalWidth },
+    crop.zoom,
+  );
+  const offset = clampPhotoCropOffset(crop.offset, bounds);
+  const canvas = document.createElement("canvas");
+  canvas.height = PHOTO_CROP_SIZE;
+  canvas.width = PHOTO_CROP_SIZE;
+
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("画像を切り抜けませんでした。");
+
+  context.fillStyle = "#fff";
+  context.fillRect(0, 0, PHOTO_CROP_SIZE, PHOTO_CROP_SIZE);
+
+  const baseScale = Math.max(
+    PHOTO_CROP_SIZE / image.naturalWidth,
+    PHOTO_CROP_SIZE / image.naturalHeight,
+  );
+  const drawnWidth = image.naturalWidth * baseScale * crop.zoom;
+  const drawnHeight = image.naturalHeight * baseScale * crop.zoom;
+  const left =
+    (PHOTO_CROP_SIZE - drawnWidth) / 2 + (offset.x / 100) * PHOTO_CROP_SIZE;
+  const top =
+    (PHOTO_CROP_SIZE - drawnHeight) / 2 + (offset.y / 100) * PHOTO_CROP_SIZE;
+
+  context.drawImage(image, left, top, drawnWidth, drawnHeight);
+
+  const blob = await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (nextBlob) => {
+        if (nextBlob) resolve(nextBlob);
+        else reject(new Error("画像を切り抜けませんでした。"));
+      },
+      "image/jpeg",
+      0.92,
+    );
+  });
+
+  return new File([blob], croppedPhotoName(sourceFile.name), {
+    lastModified: Date.now(),
+    type: "image/jpeg",
+  });
+}
+
+function loadImage(file: File) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    const url = URL.createObjectURL(file);
+    const cleanup = () => URL.revokeObjectURL(url);
+
+    image.onload = () => {
+      cleanup();
+      resolve(image);
+    };
+    image.onerror = () => {
+      cleanup();
+      reject(new Error("画像を読み込めませんでした。別の画像を選んでください。"));
+    };
+    image.src = url;
+  });
+}
+
+function croppedPhotoName(fileName: string) {
+  const baseName = fileName.replace(/\.[^.]+$/, "").trim();
+  return `${baseName || "profile-photo"}-cropped.jpg`;
+}
+
 function DateTriple({
   label,
   prefix,
@@ -1288,7 +1738,7 @@ function SelectedRelationshipList({
   isSaving: boolean;
   onDeleted: (relationshipId: number) => void;
   onEdit: (relationship: FamilyRelationship) => void;
-  onSubmit: (form: HTMLFormElement, doneMessage: string) => Promise<boolean>;
+  onSubmit: FamilyFormSubmit;
   person: FamilyMember;
   relationships: FamilyRelationship[];
 }) {

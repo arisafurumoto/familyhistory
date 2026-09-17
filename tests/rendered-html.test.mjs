@@ -65,3 +65,17 @@ test("keeps calendar time hidden and member auto-add options wired", async () =>
   assert.match(familyData, /createAutomaticFamilyEvents/);
   assert.match(familyData, /年・月・日をすべて入力してください/);
 });
+
+test("uses square crop input for member photos only", async () => {
+  const app = await readFile(
+    new URL("../app/FamilyApp.tsx", import.meta.url),
+    "utf8",
+  );
+
+  const memberPhotoInputs = app.match(/<PhotoCropInput\b/g) ?? [];
+  assert.equal(memberPhotoInputs.length, 2);
+  assert.match(app, /const PHOTO_CROP_SIZE = 512/);
+  assert.match(app, /appendCroppedPhoto/);
+  assert.match(app, /name="coverPhoto"/);
+  assert.doesNotMatch(app, /accept="image\/\*"\s+name="photo"/);
+});
