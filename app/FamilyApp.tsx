@@ -39,7 +39,11 @@ import type {
   FamilyRelationship,
   TimelineEvent,
 } from "./family-shared";
-import { CALENDAR_CATEGORIES, TIMELINE_CATEGORIES } from "./family-shared";
+import {
+  CALENDAR_CATEGORIES,
+  TIMELINE_CATEGORIES,
+  formatFamilyMemberDisplayName,
+} from "./family-shared";
 
 type ActiveView = "timeline" | "tree" | "calendar";
 
@@ -1926,8 +1930,9 @@ function personRelationshipSummary(
 }
 
 function displayName(person: FamilyMember) {
-  if (person.familyName && person.givenName) return `${person.familyName} ${person.givenName}`;
-  if (person.familyName || person.givenName) return `${person.familyName}${person.givenName}`;
+  if (person.familyName || person.givenName) {
+    return formatFamilyMemberDisplayName(person.familyName, person.givenName);
+  }
   return person.name;
 }
 

@@ -10,6 +10,7 @@ import {
 import {
   CALENDAR_CATEGORIES,
   TIMELINE_CATEGORIES,
+  formatFamilyMemberStoredName,
   type FamilyData,
 } from "./family-shared";
 
@@ -191,7 +192,7 @@ export async function saveFamilyMember(formData: FormData) {
   const now = new Date().toISOString();
   const familyName = requiredText(formData, "familyName", "姓");
   const givenName = requiredText(formData, "givenName", "名");
-  const name = `${familyName}${givenName}`;
+  const name = formatFamilyMemberStoredName(familyName, givenName);
 
   if (!id) validateAutomaticFamilyEvents(formData, birth, death);
 

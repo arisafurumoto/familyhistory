@@ -79,3 +79,17 @@ test("uses square crop input for member photos only", async () => {
   assert.match(app, /name="coverPhoto"/);
   assert.doesNotMatch(app, /accept="image\/\*"\s+name="photo"/);
 });
+
+test("formats alphabetic member names with given name first", async () => {
+  const [app, familyData, familyShared] = await Promise.all([
+    readFile(new URL("../app/FamilyApp.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/family-data.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/family-shared.ts", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(familyShared, /formatFamilyMemberDisplayName/);
+  assert.match(familyShared, /formatFamilyMemberStoredName/);
+  assert.ok(familyShared.includes("return `${givenName} ${familyName}`;"));
+  assert.match(app, /formatFamilyMemberDisplayName\(person\.familyName, person\.givenName\)/);
+  assert.match(familyData, /formatFamilyMemberStoredName\(familyName, givenName\)/);
+});

@@ -21,6 +21,31 @@ export const CALENDAR_CATEGORIES = [
   "その他",
 ] as const;
 
+export function formatFamilyMemberDisplayName(
+  familyName: string,
+  givenName: string,
+) {
+  if (isAlphabeticNamePart(familyName) && isAlphabeticNamePart(givenName)) {
+    return `${givenName} ${familyName}`;
+  }
+  if (familyName && givenName) return `${familyName} ${givenName}`;
+  return `${familyName}${givenName}`;
+}
+
+export function formatFamilyMemberStoredName(
+  familyName: string,
+  givenName: string,
+) {
+  if (isAlphabeticNamePart(familyName) && isAlphabeticNamePart(givenName)) {
+    return `${givenName} ${familyName}`;
+  }
+  return `${familyName}${givenName}`;
+}
+
+function isAlphabeticNamePart(value: string) {
+  return /^[A-Za-z]+$/.test(value);
+}
+
 export type TimelineEvent = {
   id: number;
   title: string;
