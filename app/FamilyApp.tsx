@@ -271,60 +271,67 @@ function TimelineSection({
           {timelineYears.length === 0 ? (
             <EmptyState title="年表はまだ登録されていません" />
           ) : (
-            timelineYears.map(({ events, year }) => (
-              <section className="timeline-year-group" key={year}>
-                <h2 className="timeline-year-title">{year}年</h2>
-                <div className="timeline-year-events">
-                  {events.map((timelineEvent) => {
-                    const category = timelineCategoryDefinition(
-                      timelineEvent.category,
-                    );
+            timelineYears.map(({ events, year }) => {
+              const warekiYear = formatWarekiDate(year, null, null, "year");
 
-                    const isSelected = selectedEventId === timelineEvent.id;
+              return (
+                <section className="timeline-year-group" key={year}>
+                  <h2 className="timeline-year-title">
+                    <span>{year}年</span>
+                    {warekiYear ? <small>{warekiYear}</small> : null}
+                  </h2>
+                  <div className="timeline-year-events">
+                    {events.map((timelineEvent) => {
+                      const category = timelineCategoryDefinition(
+                        timelineEvent.category,
+                      );
 
-                    return (
-                      <article
-                        className={
-                          isSelected
-                            ? "timeline-item selected with-inline-detail"
-                            : "timeline-item"
-                        }
-                        key={timelineEvent.id}
-                      >
-                        <span
-                          aria-label={timelineEvent.category}
-                          className="timeline-category-icon"
-                          title={timelineEvent.category}
+                      const isSelected = selectedEventId === timelineEvent.id;
+
+                      return (
+                        <article
+                          className={
+                            isSelected
+                              ? "timeline-item selected with-inline-detail"
+                              : "timeline-item"
+                          }
+                          key={timelineEvent.id}
                         >
-                          <TimelineCategoryIcon category={category} />
-                        </span>
-                        <button
-                          aria-pressed={isSelected}
-                          className="timeline-title-button"
-                          onClick={() => setSelectedEventId(timelineEvent.id)}
-                          type="button"
-                        >
-                          {timelineEvent.title}
-                        </button>
-                        {isSelected ? (
-                          <div className="timeline-inline-detail">
-                            <TimelineEventDetailPanel
-                              event={timelineEvent}
-                              isSaving={isSaving}
-                              key={`inline-${timelineEvent.id}`}
-                              onClose={() => setSelectedEventId(null)}
-                              onDeleted={() => setSelectedEventId(null)}
-                              onSubmit={onSubmit}
-                              variant="inline"
-                            />
-                          </div>
-                        ) : null}
-                      </article>
-                    );
-                  })}
-                </div>
-              </section>
-            ))
+                          <span
+                            aria-label={timelineEvent.category}
+                            className="timeline-category-icon"
+                            title={timelineEvent.category}
+                          >
+                            <TimelineCategoryIcon category={category} />
+                          </span>
+                          <button
+                            aria-pressed={isSelected}
+                            className="timeline-title-button"
+                            onClick={() => setSelectedEventId(timelineEvent.id)}
+                            type="button"
+                          >
+                            {timelineEvent.title}
+                          </button>
+                          {isSelected ? (
+                            <div className="timeline-inline-detail">
+                              <TimelineEventDetailPanel
+                                event={timelineEvent}
+                                isSaving={isSaving}
+                                key={`inline-${timelineEvent.id}`}
+                                onClose={() => setSelectedEventId(null)}
+                                onDeleted={() => setSelectedEventId(null)}
+                                onSubmit={onSubmit}
+                                variant="inline"
+                              />
+                            </div>
+                          ) : null}
+                        </article>
+                      );
+                    })}
+                  </div>
+                </section>
+              );
+            })
           )}
         </div>
 
@@ -1119,6 +1126,7 @@ function PersonDetailPanel({
     person.birthYear,
     person.birthMonth,
     person.birthDay,
+    { includeWareki: true },
   );
   const relationshipOptions = members.filter((member) => member.id !== person.id);
 
@@ -1446,6 +1454,7 @@ function CalendarSection({
     () => eventsForMonth(data.calendarEvents, monthCursor),
     [data.calendarEvents, monthCursor],
   );
+  const warekiMonth = formatWarekiMonthHeading(monthCursor);
 
   return (
     <section className="section-grid calendar-layout">
@@ -1521,7 +1530,10 @@ function CalendarSection({
           >
             ‹
           </button>
-          <h2>{formatMonth(monthCursor)}</h2>
+          <h2>
+            <span>{formatMonth(monthCursor)}</span>
+            {warekiMonth ? <small>{warekiMonth}</small> : null}
+          </h2>
           <button
             aria-label="次の月"
             className="icon-button"
@@ -2177,26 +2189,180 @@ function compareFamilyMembers(left: FamilyMember, right: FamilyMember) {
   return displayName(left).localeCompare(displayName(right), "ja-JP");
 }
 
+type DateDisplayPrecision = "day" | "month" | "year";
+
+const warekiFormatters: Record<DateDisplayPrecision, Intl.DateTimeFormat> = {
+  day: new Intl.DateTimeFormat("ja-JP-u-ca-japanese", {
+    day: "numeric",
+    era: "long",
+    month: "numeric",
+    year: "numeric",
+  }),
+  month: new Intl.DateTimeFormat("ja-JP-u-ca-japanese", {
+    era: "long",
+    month: "numeric",
+    year: "numeric",
+  }),
+  year: new Intl.DateTimeFormat("ja-JP-u-ca-japanese", {
+    era: "long",
+    year: "numeric",
+  }),
+};
+
 function formatPartialDate(event: TimelineEvent) {
   if (event.datePrecision === "day" && event.dateMonth && event.dateDay) {
-    return `${event.dateYear}年${event.dateMonth}月${event.dateDay}日`;
+    const primary = `${event.dateYear}年${event.dateMonth}月${event.dateDay}日`;
+    return withWarekiDate(
+      primary,
+      formatWarekiDate(event.dateYear, event.dateMonth, event.dateDay, "day"),
+    );
   }
   if (event.datePrecision === "month" && event.dateMonth) {
-    return `${event.dateYear}年${event.dateMonth}月`;
+    const primary = `${event.dateYear}年${event.dateMonth}月`;
+    return withWarekiDate(
+      primary,
+      formatWarekiDate(event.dateYear, event.dateMonth, null, "month"),
+    );
   }
-  return `${event.dateYear}年`;
+  const primary = `${event.dateYear}年`;
+  return withWarekiDate(
+    primary,
+    formatWarekiDate(event.dateYear, null, null, "year"),
+  );
 }
 
 function formatProfileDate(
   year: number | null,
   month: number | null,
   day: number | null,
+  options: { includeWareki?: boolean } = {},
 ) {
-  if (year && month && day) return `${year}年${month}月${day}日`;
-  if (year && month) return `${year}年${month}月`;
-  if (year) return `${year}年`;
+  let precision: DateDisplayPrecision | null = null;
+  let primary = "";
+
+  if (year && month && day) {
+    precision = "day";
+    primary = `${year}年${month}月${day}日`;
+  } else if (year && month) {
+    precision = "month";
+    primary = `${year}年${month}月`;
+  } else if (year) {
+    precision = "year";
+    primary = `${year}年`;
+  }
+
+  if (primary) {
+    return options.includeWareki && precision
+      ? withWarekiDate(primary, formatWarekiDate(year, month, day, precision))
+      : primary;
+  }
+
   if (month && day) return `${month}月${day}日`;
   return "";
+}
+
+function withWarekiDate(primary: string, wareki: string) {
+  return wareki ? `${primary}（${wareki}）` : primary;
+}
+
+function formatWarekiMonthHeading(date: Date) {
+  return formatWarekiDate(
+    date.getFullYear(),
+    date.getMonth() + 1,
+    null,
+    "month",
+    "year",
+  );
+}
+
+function formatWarekiDate(
+  year: number | null,
+  month: number | null,
+  day: number | null,
+  precision: DateDisplayPrecision,
+  outputPrecision: DateDisplayPrecision = precision,
+) {
+  const range = dateRangeForPrecision(year, month, day, precision);
+  if (!range) return "";
+
+  const startEra = warekiEraYearKey(range.start);
+  if (!startEra || startEra !== warekiEraYearKey(range.end)) return "";
+
+  return formatWarekiParts(range.start, outputPrecision);
+}
+
+function dateRangeForPrecision(
+  year: number | null,
+  month: number | null,
+  day: number | null,
+  precision: DateDisplayPrecision,
+) {
+  if (!year) return null;
+
+  if (precision === "day") {
+    if (!month || !day) return null;
+    const date = exactLocalDate(year, month, day);
+    return date ? { end: date, start: date } : null;
+  }
+
+  if (precision === "month") {
+    if (!month) return null;
+    const start = exactLocalDate(year, month, 1);
+    if (!start) return null;
+    return {
+      end: localDate(year, month, 0),
+      start,
+    };
+  }
+
+  return {
+    end: exactLocalDate(year, 12, 31) ?? localDate(year, 11, 31),
+    start: exactLocalDate(year, 1, 1) ?? localDate(year, 0, 1),
+  };
+}
+
+function exactLocalDate(year: number, month: number, day: number) {
+  const date = localDate(year, month - 1, day);
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return null;
+  }
+  return date;
+}
+
+function localDate(year: number, monthIndex: number, day: number) {
+  const date = new Date(0);
+  date.setFullYear(year, monthIndex, day);
+  date.setHours(12, 0, 0, 0);
+  return date;
+}
+
+function warekiEraYearKey(date: Date) {
+  const parts = warekiFormatters.year.formatToParts(date);
+  const era = parts.find((part) => part.type === "era")?.value;
+  const year = parts.find((part) => part.type === "year")?.value;
+  return era && year ? `${era}:${year}` : "";
+}
+
+function formatWarekiParts(date: Date, precision: DateDisplayPrecision) {
+  const parts = warekiFormatters[precision].formatToParts(date);
+  const partValue = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? "";
+  const era = partValue("era");
+  const year = partValue("year") === "1" ? "元" : partValue("year");
+
+  if (!era || !year) return "";
+  if (precision === "year") return `${era}${year}年`;
+
+  const month = partValue("month");
+  if (!month) return "";
+  if (precision === "month") return `${era}${year}年${month}月`;
+
+  const day = partValue("day");
+  return day ? `${era}${year}年${month}月${day}日` : "";
 }
 
 function formatPersonAge(person: FamilyMember) {

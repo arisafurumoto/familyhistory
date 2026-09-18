@@ -93,3 +93,21 @@ test("formats alphabetic member names with given name first", async () => {
   assert.match(app, /formatFamilyMemberDisplayName\(person\.familyName, person\.givenName\)/);
   assert.match(familyData, /formatFamilyMemberStoredName\(familyName, givenName\)/);
 });
+
+test("adds unobtrusive wareki display without changing inputs", async () => {
+  const [app, css] = await Promise.all([
+    readFile(new URL("../app/FamilyApp.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(app, /ja-JP-u-ca-japanese/);
+  assert.match(app, /function formatWarekiDate/);
+  assert.match(app, /dateRangeForPrecision/);
+  assert.match(app, /formatWarekiDate\(year, null, null, "year"\)/);
+  assert.match(app, /includeWareki: true/);
+  assert.match(app, /formatWarekiMonthHeading\(monthCursor\)/);
+  assert.match(app, /name="dateYear"/);
+  assert.ok(app.includes('name={`${prefix}Year`}'));
+  assert.match(css, /timeline-year-title small/);
+  assert.match(css, /calendar-header h2 small/);
+});

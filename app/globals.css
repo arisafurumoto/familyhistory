@@ -692,11 +692,24 @@ textarea:focus {
 }
 
 .timeline-year-title {
+  align-items: baseline;
   color: var(--green-dark);
+  display: flex;
+  flex-wrap: wrap;
   font-size: 26px;
   font-family: "Yu Mincho", "Hiragino Mincho ProN", "YuMincho", serif;
+  gap: 8px;
   margin: 0;
   position: relative;
+}
+
+.timeline-year-title small,
+.calendar-header h2 small {
+  color: var(--muted);
+  font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic",
+    "Meiryo", system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .timeline-year-title::before {
@@ -1350,6 +1363,8 @@ textarea:focus {
 }
 
 .calendar-header h2 {
+  display: grid;
+  gap: 2px;
   margin: 0;
   text-align: center;
 }
