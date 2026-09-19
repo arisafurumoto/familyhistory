@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { and, asc, eq, or } from "drizzle-orm";
+import { and, asc, eq, isNull, or } from "drizzle-orm";
 import { getD1, getDb } from "@/db";
 import {
   calendarEvents,
@@ -14,7 +14,10 @@ import {
   type FamilyData,
 } from "./family-shared";
 
+import { commitTimelinePhotoChange, optimizeTimelinePhoto, type ImagesBinding } from "./timeline-photo";
+
 type MediaBucket = {
+  delete(key: string): Promise<void>;
   put(
     key: string,
     value: ArrayBuffer,
@@ -153,9 +156,7 @@ export async function saveTimelineEvent(formData: FormData) {
   const db = getDb();
   const id = optionalId(formData.get("id"));
   const parsedDate = parseTimelineDate(formData);
-  const photo = await maybeStoreImage(formData.get("coverPhoto"), "timeline");
-  const now = new Date().toISOString();
-
+  // Validate all fields before storing a new object.
   const values: typeof timelineEvents.$inferInsert = {
     title: requiredText(formData, "title", "タイトル"),
     dateYear: parsedDate.year,
@@ -165,22 +166,44 @@ export async function saveTimelineEvent(formData: FormData) {
     category: timelineCategory(formData.get("category")),
     location: plainText(formData.get("location"), 200),
     description: plainText(formData.get("description"), 5000),
-    updatedAt: now,
-    ...(photo
-      ? {
-          coverPhotoKey: photo.key,
-          coverPhotoName: photo.name,
-          coverPhotoContentType: photo.contentType,
-        }
-      : {}),
+    updatedAt: new Date().toISOString(),
   };
+  const previous = id
+    ? await db.select().from(timelineEvents).where(eq(timelineEvents.id, id)).get()
+    : null;
+  if (id && !previous) throw new Error("この年表は削除されています。");
+  const photo = await maybeStoreImage(formData.get("coverPhoto"), "timeline");
+  if (photo) Object.assign(values, {
+    coverPhotoKey: photo.key,
+    coverPhotoName: photo.name,
+    coverPhotoContentType: photo.contentType,
+  });
+  await commitTimelinePhotoChange(photo, previous?.coverPhotoKey ?? null, async () => {
+    if (id) {
+      const conditions = [eq(timelineEvents.id, id)];
+      if (photo) conditions.push(previous?.coverPhotoKey
+        ? eq(timelineEvents.coverPhotoKey, previous.coverPhotoKey)
+        : isNull(timelineEvents.coverPhotoKey));
+      const changed = await db.update(timelineEvents).set(values)
+        .where(and(...conditions)).returning({ id: timelineEvents.id });
+      if (!changed.length) throw new Error("写真が変更または年表が削除されました。再読み込みしてからお試しください。");
+    } else {
+      await db.insert(timelineEvents).values(values);
+    }
+  }, removeUnreferencedTimelinePhoto);
+}
 
-  if (id) {
-    await db.update(timelineEvents).set(values).where(eq(timelineEvents.id, id));
-    return;
+async function removeUnreferencedTimelinePhoto(key: string) {
+  if (!key.startsWith("timeline/")) return;
+  const db = getDb();
+  const [events, people] = await Promise.all([
+    db.select({ id: timelineEvents.id }).from(timelineEvents).where(eq(timelineEvents.coverPhotoKey, key)).limit(1),
+    db.select({ id: familyMembers.id }).from(familyMembers).where(eq(familyMembers.photoKey, key)).limit(1),
+  ]);
+  if (!events.length && !people.length) {
+    const runtimeEnv = env as unknown as { MEDIA?: MediaBucket };
+    await runtimeEnv.MEDIA?.delete(key);
   }
-
-  await db.insert(timelineEvents).values(values);
 }
 
 export async function saveFamilyMember(formData: FormData) {
@@ -559,9 +582,24 @@ async function maybeStoreImage(value: FormDataEntryValue | null, folder: string)
     throw new Error("画像は5MB以下にしてください。");
   }
 
-  const runtimeEnv = env as unknown as { MEDIA?: MediaBucket };
+  const runtimeEnv = env as unknown as { MEDIA?: MediaBucket; IMAGES?: ImagesBinding };
   if (!runtimeEnv.MEDIA) {
     throw new Error("画像保存用のストレージがまだ利用できません。");
+  }
+
+  if (folder === "timeline") {
+    const photo = await optimizeTimelinePhoto(value, runtimeEnv.IMAGES);
+    try {
+      await runtimeEnv.MEDIA.put(photo.key, photo.bytes, {
+        httpMetadata: { contentType: photo.contentType },
+      });
+    } catch (error) {
+      // A transport error may occur after R2 has accepted the object.
+      try { await runtimeEnv.MEDIA.delete(photo.key); }
+      catch { console.error("Timeline photo upload cleanup failed.", photo.key); }
+      throw error;
+    }
+    return { key: photo.key, name: photo.name, contentType: photo.contentType };
   }
 
   const extension = extensionFromFile(value);
