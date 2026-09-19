@@ -104,10 +104,13 @@ test("adds unobtrusive wareki display without changing inputs", async () => {
   assert.match(app, /function formatWarekiDate/);
   assert.match(app, /dateRangeForPrecision/);
   assert.match(app, /formatWarekiDate\(year, null, null, "year"\)/);
-  assert.match(app, /includeWareki: true/);
+  assert.match(app, /birthWarekiDate/);
+  assert.match(app, /person-detail-date/);
   assert.match(app, /formatWarekiMonthHeading\(monthCursor\)/);
   assert.match(app, /name="dateYear"/);
   assert.ok(app.includes('name={`${prefix}Year`}'));
   assert.match(css, /timeline-year-title small/);
   assert.match(css, /calendar-header h2 small/);
+  assert.match(css, /\.timeline-detail-date\s*\{[^}]*display:\s*grid/s);
+  assert.match(css, /\.person-detail-date span\s*\{[^}]*display:\s*block/s);
 });

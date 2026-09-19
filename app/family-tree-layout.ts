@@ -112,8 +112,6 @@ export function birthOrderLabels(groups: FamilyGroup[]) {
   const labels = new Map<number, string>();
   const ordinal = (n: number) => ['', '長', '次', '三', '四', '五', '六', '七', '八', '九', '十'][n] ?? `第${n}`;
   for (const group of groups) {
-    // One known parent does not establish that both parents are the same.
-    if (group.parentIds.length !== 2) continue;
     for (const child of group.children) {
       const own = birthRange(child);
       if (!own) continue;

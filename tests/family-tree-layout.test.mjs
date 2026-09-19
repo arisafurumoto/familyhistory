@@ -47,10 +47,12 @@ test('ambiguous birthdays and missing years do not invent an ordinal',()=>{
   assert.equal(labels([...parents,...children],links).size,0);
  }
 });
-test('one parent is grouped visually but does not establish full siblings',()=>{
- const layout=buildFamilyTreeLayout([parents[0],...sisters],[rel(1,3),rel(1,4)]);
+test('one shared parent is enough to show sibling birth order',()=>{
+ const children=[person(3,1983),person(4,1990)];
+ const layout=buildFamilyTreeLayout([parents[0],...children],[rel(1,3),rel(1,4)]);
  assert.equal(layout.lines.filter(l=>l.key.endsWith('-trunk')).length,1);
- assert.ok(layout.nodes.every(n=>!n.birthOrderLabel));
+ assert.equal(layout.nodes.find(n=>n.person.id===3).birthOrderLabel,'第1子');
+ assert.equal(layout.nodes.find(n=>n.person.id===4).birthOrderLabel,'第2子');
 });
 test('different parent sets are not combined; duplicate relationships are deduplicated',()=>{
  const people=[...parents,...sisters,person(5,1955,'female')];

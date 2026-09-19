@@ -1134,8 +1134,22 @@ function PersonDetailPanel({
     person.birthYear,
     person.birthMonth,
     person.birthDay,
-    { includeWareki: true },
   );
+  const birthDatePrecision: DateDisplayPrecision | null = person.birthYear
+    ? person.birthMonth
+      ? person.birthDay
+        ? "day"
+        : "month"
+      : "year"
+    : null;
+  const birthWarekiDate = birthDatePrecision
+    ? formatWarekiDate(
+        person.birthYear,
+        person.birthMonth,
+        person.birthDay,
+        birthDatePrecision,
+      )
+    : "";
   const relationshipOptions = members.filter((member) => member.id !== person.id);
 
   return (
@@ -1152,7 +1166,10 @@ function PersonDetailPanel({
         <div>
           <span className="section-kicker">選択中の人物</span>
           <h2>{displayName(person)}</h2>
-          <p>{birthDate || "生年月日未登録"}</p>
+          <p className="person-detail-date">
+            <span>{birthDate || "生年月日未登録"}</span>
+            {birthWarekiDate ? <span>{birthWarekiDate}</span> : null}
+          </p>
         </div>
       </div>
 
