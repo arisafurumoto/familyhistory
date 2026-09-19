@@ -890,6 +890,19 @@ textarea:focus {
   margin: 0;
 }
 
+.timeline-detail-date {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+
+.timeline-relative-year {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
 .timeline-detail-description {
   border-top: 1px solid var(--line);
   padding-top: 18px;

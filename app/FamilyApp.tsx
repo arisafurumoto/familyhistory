@@ -468,6 +468,15 @@ function TimelineEventDetailPanel({
   variant: "desktop" | "inline";
 }) {
   const [isEditing, setIsEditing] = useState(false);
+  // Detail cards mount after selection in the browser, using the viewer's year.
+  const [currentYear] = useState(() => new Date().getFullYear());
+  const yearDifference = currentYear - event.dateYear;
+  const relativeYear =
+    yearDifference === 0
+      ? "今年"
+      : yearDifference > 0
+        ? `${yearDifference}年前`
+        : `${-yearDifference}年後`;
   const category = timelineCategoryDefinition(event.category);
   const panelClassName =
     variant === "desktop"
@@ -518,26 +527,25 @@ function TimelineEventDetailPanel({
           <dl className="timeline-detail-meta">
             <div>
               <dt>日付</dt>
-              <dd>{formatPartialDate(event)}</dd>
+              <dd className="timeline-detail-date">
+                <span>{formatPartialDate(event)}</span>
+                <span className="timeline-relative-year">{relativeYear}</span>
+              </dd>
             </div>
-            <div>
-              <dt>カテゴリー</dt>
-              <dd>{event.category}</dd>
-            </div>
-            <div>
-              <dt>場所</dt>
-              <dd>{event.location || "未登録"}</dd>
-            </div>
+            {event.location.trim() ? (
+              <div>
+                <dt>場所</dt>
+                <dd>{event.location}</dd>
+              </div>
+            ) : null}
           </dl>
 
-          <section className="timeline-detail-description">
-            <h3>説明</h3>
-            {event.description ? (
+          {event.description.trim() ? (
+            <section className="timeline-detail-description">
+              <h3>説明</h3>
               <p>{event.description}</p>
-            ) : (
-              <p className="muted">説明はまだ登録されていません。</p>
-            )}
-          </section>
+            </section>
+          ) : null}
         </>
       )}
 
