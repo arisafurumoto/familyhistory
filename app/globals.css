@@ -1241,28 +1241,6 @@ textarea:focus {
   font-weight: 800;
 }
 
-.profile-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 8px 0;
-}
-
-.profile-tags span {
-  background: #fff7df;
-  border: 1px solid #ead99d;
-  border-radius: 999px;
-  color: #6a4d16;
-  font-size: 12px;
-  font-weight: 800;
-  padding: 4px 8px;
-}
-
-.tree-person-card .profile-tags {
-  max-height: 27px;
-  overflow: hidden;
-}
-
 .person-memo {
   font-size: 14px;
 }
@@ -1316,8 +1294,28 @@ textarea:focus {
   display: block;
 }
 
-.detail-tags {
+.person-detail-fields {
+  display: grid;
+  gap: 10px;
+  font-size: 14px;
+  line-height: 1.55;
   margin: 0;
+}
+
+.person-detail-fields > div {
+  display: grid;
+  grid-template-columns: 5em minmax(0, 1fr);
+  gap: 12px;
+}
+
+.person-detail-fields dt {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.person-detail-fields dd {
+  margin: 0;
+  overflow-wrap: anywhere;
 }
 
 .detail-relationships,

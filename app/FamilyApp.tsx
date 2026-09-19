@@ -1130,6 +1130,7 @@ function PersonDetailPanel({
   const photoCropRef = useRef<PhotoCropInputHandle>(null);
   const sign = getZodiacSign(person.birthMonth, person.birthDay);
   const eto = getEto(person.birthYear);
+  const age = calculateAge(person);
   const birthDate = formatProfileDate(
     person.birthYear,
     person.birthMonth,
@@ -1161,7 +1162,7 @@ function PersonDetailPanel({
             src={`/api/photos/${person.photoKey}`}
           />
         ) : (
-          <span className="person-detail-initial">{displayName(person).slice(0, 1)}</span>
+          <span className="person-detail-initial">{personInitial(person)}</span>
         )}
         <div>
           <span className="section-kicker">選択中の人物</span>
@@ -1275,17 +1276,27 @@ function PersonDetailPanel({
         </>
       ) : (
         <>
-          <div className="profile-tags detail-tags">
-            {birthOrderLabel ? <span title="登録済みの同じ両親の子どもから自動計算">{birthOrderLabel}</span> : null}
-            {formatPersonAge(person) ? <span>{formatPersonAge(person)}</span> : null}
-            {sign ? <span>{sign}</span> : null}
-            {eto ? <span>{eto}</span> : null}
-          </div>
-          {person.memo ? (
+          {birthOrderLabel || age !== null || sign || eto ? (
+            <dl className="person-detail-fields">
+              {birthOrderLabel ? (
+                <div>
+                  <dt>出生順</dt>
+                  <dd title="登録済みの同じ両親の子どもから自動計算">{birthOrderLabel}</dd>
+                </div>
+              ) : null}
+              {age !== null ? (
+                <div>
+                  <dt>{person.deathYear ? "享年" : "年齢"}</dt>
+                  <dd>{age}歳</dd>
+                </div>
+              ) : null}
+              {sign ? <div><dt>星座</dt><dd>{sign}</dd></div> : null}
+              {eto ? <div><dt>干支</dt><dd>{eto}</dd></div> : null}
+            </dl>
+          ) : null}
+          {person.memo?.trim() ? (
             <p className="person-memo">{person.memo}</p>
-          ) : (
-            <p className="muted person-memo">メモはまだ登録されていません。</p>
-          )}
+          ) : null}
 
           <section className="detail-relationships">
             <h3>関係</h3>
@@ -1928,7 +1939,7 @@ function TreePersonCard({
           src={`/api/photos/${person.photoKey}`}
         />
       ) : (
-        <span className="person-initial">{displayName(person).slice(0, 1)}</span>
+        <span className="person-initial">{personInitial(person)}</span>
       )}
       <div className="tree-person-details">
         <button
@@ -1977,6 +1988,11 @@ function displayName(person: FamilyMember) {
     return formatFamilyMemberDisplayName(person.familyName, person.givenName);
   }
   return person.name;
+}
+
+function personInitial(person: FamilyMember) {
+  const name = nameParts(person).givenName.trim() || displayName(person).trim();
+  return Array.from(name)[0] ?? "";
 }
 
 function nameParts(person: FamilyMember | null) {
