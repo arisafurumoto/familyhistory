@@ -64,6 +64,7 @@ export type TimelineEvent = {
 };
 
 export type FamilyMember = {
+  gender: "" | "female" | "male" | "other";
   id: number;
   name: string;
   familyName: string;

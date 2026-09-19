@@ -33,6 +33,7 @@ export const familyMembers = sqliteTable(
   {
     id: integer("id").primaryKey({ autoIncrement: true }),
     name: text("name").notNull(),
+    gender: text("gender", { enum: ["", "female", "male", "other"] }).notNull().default(""),
     familyName: text("family_name").notNull().default(""),
     givenName: text("given_name").notNull().default(""),
     birthYear: integer("birth_year"),

@@ -61,6 +61,7 @@ export async function ensureFamilySchema() {
       name TEXT NOT NULL,
       family_name TEXT NOT NULL DEFAULT '',
       given_name TEXT NOT NULL DEFAULT '',
+      gender TEXT NOT NULL DEFAULT '',
       birth_year INTEGER,
       birth_month INTEGER,
       birth_day INTEGER,
@@ -110,6 +111,7 @@ export async function ensureFamilySchema() {
 
   await ensureTimelineEventLocationColumn(d1);
   await ensureFamilyMemberNameColumns(d1);
+  await ensureFamilyMemberGenderColumn(d1);
   schemaReady = true;
 }
 
@@ -219,10 +221,12 @@ export async function saveFamilyMember(formData: FormData) {
 
   if (!id) validateAutomaticFamilyEvents(formData, birth, death);
 
+  const gender = formData.has("gender") ? parseMemberGender(formData.get("gender")) : undefined;
   const photo = await maybeStoreImage(formData.get("photo"), "people");
 
   const values: typeof familyMembers.$inferInsert = {
     name,
+    ...(gender !== undefined ? { gender } : {}),
     familyName,
     givenName,
     birthYear: birth.year ?? undefined,
@@ -400,6 +404,20 @@ async function ensureTimelineEventLocationColumn(d1: D1Database) {
         "ALTER TABLE timeline_events ADD COLUMN location TEXT NOT NULL DEFAULT ''",
       )
       .run();
+  }
+}
+
+async function ensureFamilyMemberGenderColumn(d1: D1Database) {
+  const hasColumn = async () => {
+    const info = await d1.prepare("PRAGMA table_info(family_members)").all();
+    return (info.results as Array<{ name: string }>).some(column => column.name === "gender");
+  };
+  if (await hasColumn()) return;
+  try {
+    await d1.prepare("ALTER TABLE family_members ADD COLUMN gender TEXT NOT NULL DEFAULT ''").run();
+  } catch (error) {
+    // Another worker may have added the column concurrently.
+    if (!(await hasColumn())) throw error;
   }
 }
 
@@ -717,4 +735,9 @@ function normalizeSpouse(personId: number, relatedPersonId: number) {
   return personId < relatedPersonId
     ? { personId, relatedPersonId }
     : { personId: relatedPersonId, relatedPersonId: personId };
+}
+
+function parseMemberGender(value: FormDataEntryValue | null): "" | "female" | "male" | "other" {
+  if (value === "" || value === "female" || value === "male" || value === "other") return value;
+  throw new Error("性別は選択肢から選んでください。");
 }

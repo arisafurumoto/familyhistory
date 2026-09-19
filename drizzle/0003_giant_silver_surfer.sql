@@ -1,0 +1,1 @@
+ALTER TABLE `family_members` ADD `gender` text DEFAULT '' NOT NULL;

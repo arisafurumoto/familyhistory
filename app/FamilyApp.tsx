@@ -45,6 +45,8 @@ import {
   formatFamilyMemberDisplayName,
 } from "./family-shared";
 
+import { buildFamilyTreeLayout, type FamilyTreeLayout } from "./family-tree-layout";
+
 type ActiveView = "timeline" | "tree" | "calendar";
 
 type FamilyAppProps = {
@@ -74,27 +76,6 @@ const navItems = [
 ] as const;
 
 const etoAnimals = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"];
-const TREE_CARD_WIDTH = 220;
-const TREE_CARD_HEIGHT = 164;
-const TREE_COLUMN_GAP = 46;
-const TREE_ROW_GAP = 86;
-const TREE_PADDING_X = 28;
-const TREE_PADDING_Y = 32;
-const TREE_LABEL_WIDTH = 84;
-
-type FamilyTreeLayout = {
-  generationLabels: Array<{ key: string; text: string; y: number }>;
-  height: number;
-  lines: Array<{ key: string; kind: "parent" | "spouse"; path: string }>;
-  nodes: Array<{
-    generation: number;
-    person: FamilyMember;
-    x: number;
-    y: number;
-  }>;
-  width: number;
-};
-
 type RelationshipSentenceRole = "parent" | "child" | "spouse";
 type TimelineCategoryDefinition = (typeof TIMELINE_CATEGORIES)[number];
 
@@ -703,6 +684,7 @@ function TreeSection({
 
         {selectedPerson ? (
           <PersonDetailPanel
+            birthOrderLabel={treeLayout.nodes.find(node => node.person.id === selectedPerson.id)?.birthOrderLabel}
             familyMap={familyMap}
             isSaving={isSaving}
             key={selectedPerson.id}
@@ -1018,6 +1000,21 @@ const PhotoCropInput = forwardRef<PhotoCropInputHandle, { label: string }>(
   },
 );
 
+function MemberGenderField({ value = "" }: { value?: FamilyMember["gender"] }) {
+  return (
+    <label>
+      <span>性別（任意）</span>
+      <select defaultValue={value} name="gender">
+        <option value="">未登録</option>
+        <option value="female">女性</option>
+        <option value="male">男性</option>
+        <option value="other">その他</option>
+      </select>
+      <small className="muted">同じ両親の子どもの生年月日から「長女・次男」などを自動表示します。</small>
+    </label>
+  );
+}
+
 function NewFamilyMemberForm({
   isSaving,
   onSaved,
@@ -1068,6 +1065,7 @@ function NewFamilyMemberForm({
           <input name="givenName" required type="text" />
         </label>
       </div>
+      <MemberGenderField />
       <DateTriple label="生年月日" prefix="birth" source={null} />
       <DateTriple label="没年月日" prefix="death" source={null} />
       <fieldset className="auto-add-options">
@@ -1108,6 +1106,7 @@ function NewFamilyMemberForm({
 }
 
 function PersonDetailPanel({
+  birthOrderLabel,
   familyMap,
   isSaving,
   members,
@@ -1116,6 +1115,7 @@ function PersonDetailPanel({
   person,
   relationships,
 }: {
+  birthOrderLabel?: string;
   familyMap: Map<number, FamilyMember>;
   isSaving: boolean;
   members: FamilyMember[];
@@ -1202,6 +1202,7 @@ function PersonDetailPanel({
                   />
                 </label>
               </div>
+              <MemberGenderField value={person.gender} />
               <DateTriple label="生年月日" prefix="birth" source={person} />
               <DateTriple label="没年月日" prefix="death" source={person} />
               <PhotoCropInput ref={photoCropRef} label="写真" />
@@ -1258,6 +1259,7 @@ function PersonDetailPanel({
       ) : (
         <>
           <div className="profile-tags detail-tags">
+            {birthOrderLabel ? <span title="登録済みの同じ両親の子どもから自動計算">{birthOrderLabel}</span> : null}
             {formatPersonAge(person) ? <span>{formatPersonAge(person)}</span> : null}
             {sign ? <span>{sign}</span> : null}
             {eto ? <span>{eto}</span> : null}
@@ -1866,6 +1868,7 @@ function FamilyTreeCanvas({
             style={{ left: node.x, top: node.y }}
           >
             <TreePersonCard
+              birthOrderLabel={node.birthOrderLabel}
               isSelected={selectedPersonId === node.person.id}
               onSelect={onSelectPerson}
               person={node.person}
@@ -1878,10 +1881,12 @@ function FamilyTreeCanvas({
 }
 
 function TreePersonCard({
+  birthOrderLabel,
   isSelected,
   onSelect,
   person,
 }: {
+  birthOrderLabel?: string;
   isSelected: boolean;
   onSelect: (personId: number) => void;
   person: FamilyMember;
@@ -1899,6 +1904,7 @@ function TreePersonCard({
         isSelected ? "person-card tree-person-card selected" : "person-card tree-person-card"
       }
     >
+      {birthOrderLabel ? <span className="tree-birth-order" title="登録済みの同じ両親の子どもから自動計算">{birthOrderLabel}</span> : null}
       {person.photoKey ? (
         <img
           alt={person.photoName ?? displayName(person)}
@@ -1977,224 +1983,6 @@ function EmptyState({ title }: { title: string }) {
       <p>{title}</p>
     </div>
   );
-}
-
-function buildFamilyTreeLayout(
-  members: FamilyMember[],
-  relationships: FamilyData["familyRelationships"],
-): FamilyTreeLayout {
-  const memberIds = new Set(members.map((member) => member.id));
-  const parentRelationships = relationships.filter(
-    (relationship) =>
-      relationship.relationshipType === "parent" &&
-      memberIds.has(relationship.personId) &&
-      memberIds.has(relationship.relatedPersonId),
-  );
-  const spouseRelationships = relationships.filter(
-    (relationship) =>
-      relationship.relationshipType === "spouse" &&
-      memberIds.has(relationship.personId) &&
-      memberIds.has(relationship.relatedPersonId),
-  );
-  const generations = calculateGenerations(
-    members,
-    parentRelationships,
-    spouseRelationships,
-  );
-  const generationValues = [...new Set(generations.values())].sort(
-    (left, right) => left - right,
-  );
-  const groupByGeneration = generationValues.map((generationValue, generation) => ({
-    generation,
-    people: orderGenerationPeople(
-      members.filter((member) => generations.get(member.id) === generationValue),
-      spouseRelationships,
-    ),
-  }));
-  const rowWidths = groupByGeneration.map(({ people }) =>
-    people.length * TREE_CARD_WIDTH +
-    Math.max(0, people.length - 1) * TREE_COLUMN_GAP,
-  );
-  const maxRowWidth = Math.max(...rowWidths, TREE_CARD_WIDTH);
-  const width = Math.max(
-    920,
-    maxRowWidth + TREE_LABEL_WIDTH + TREE_PADDING_X * 2,
-  );
-  const nodes: FamilyTreeLayout["nodes"] = [];
-  const nodeById = new Map<number, FamilyTreeLayout["nodes"][number]>();
-  const generationLabels: FamilyTreeLayout["generationLabels"] = [];
-
-  groupByGeneration.forEach(({ generation, people }, rowIndex) => {
-    const y = TREE_PADDING_Y + rowIndex * (TREE_CARD_HEIGHT + TREE_ROW_GAP);
-    const rowWidth =
-      people.length * TREE_CARD_WIDTH +
-      Math.max(0, people.length - 1) * TREE_COLUMN_GAP;
-    const startX =
-      TREE_PADDING_X +
-      TREE_LABEL_WIDTH +
-      Math.max(0, (maxRowWidth - rowWidth) / 2);
-
-    generationLabels.push({
-      key: `generation-${generation}`,
-      text: `第${generation + 1}世代`,
-      y: y + TREE_CARD_HEIGHT / 2,
-    });
-
-    people.forEach((person, index) => {
-      const node = {
-        generation,
-        person,
-        x: startX + index * (TREE_CARD_WIDTH + TREE_COLUMN_GAP),
-        y,
-      };
-      nodes.push(node);
-      nodeById.set(person.id, node);
-    });
-  });
-
-  const height =
-    TREE_PADDING_Y * 2 +
-    groupByGeneration.length * TREE_CARD_HEIGHT +
-    Math.max(0, groupByGeneration.length - 1) * TREE_ROW_GAP;
-  const lines: FamilyTreeLayout["lines"] = [];
-
-  spouseRelationships.forEach((relationship) => {
-    const firstNode = nodeById.get(relationship.personId);
-    const secondNode = nodeById.get(relationship.relatedPersonId);
-    if (!firstNode || !secondNode) return;
-
-    const [leftNode, rightNode] =
-      firstNode.x <= secondNode.x ? [firstNode, secondNode] : [secondNode, firstNode];
-    const y = leftNode.y + TREE_CARD_HEIGHT / 2;
-    lines.push({
-      key: `spouse-${relationship.id}`,
-      kind: "spouse",
-      path: `M ${leftNode.x + TREE_CARD_WIDTH} ${y} L ${rightNode.x} ${y}`,
-    });
-  });
-
-  parentRelationships.forEach((relationship) => {
-    const parentNode = nodeById.get(relationship.personId);
-    const childNode = nodeById.get(relationship.relatedPersonId);
-    if (!parentNode || !childNode) return;
-
-    const startX = parentNode.x + TREE_CARD_WIDTH / 2;
-    const startY = parentNode.y + TREE_CARD_HEIGHT;
-    const endX = childNode.x + TREE_CARD_WIDTH / 2;
-    const endY = childNode.y;
-    const middleY = startY + Math.max(32, (endY - startY) / 2);
-    lines.push({
-      key: `parent-${relationship.id}`,
-      kind: "parent",
-      path: `M ${startX} ${startY} C ${startX} ${middleY} ${endX} ${middleY} ${endX} ${endY}`,
-    });
-  });
-
-  return {
-    generationLabels,
-    height,
-    lines,
-    nodes,
-    width,
-  };
-}
-
-function calculateGenerations(
-  members: FamilyMember[],
-  parentRelationships: FamilyRelationship[],
-  spouseRelationships: FamilyRelationship[],
-) {
-  const maxGeneration = Math.max(0, members.length - 1);
-  const generations = new Map(members.map((member) => [member.id, 0]));
-  const maxPasses = Math.max(1, members.length * (parentRelationships.length + 1));
-
-  for (let pass = 0; pass < maxPasses; pass += 1) {
-    let changed = false;
-
-    parentRelationships.forEach((relationship) => {
-      const parentGeneration = generations.get(relationship.personId) ?? 0;
-      const childGeneration = generations.get(relationship.relatedPersonId) ?? 0;
-      const nextGeneration = Math.min(parentGeneration + 1, maxGeneration);
-      if (childGeneration < nextGeneration) {
-        generations.set(relationship.relatedPersonId, nextGeneration);
-        changed = true;
-      }
-    });
-
-    spouseRelationships.forEach((relationship) => {
-      const firstGeneration = generations.get(relationship.personId) ?? 0;
-      const secondGeneration = generations.get(relationship.relatedPersonId) ?? 0;
-      const sharedGeneration = Math.max(firstGeneration, secondGeneration);
-      if (firstGeneration !== sharedGeneration) {
-        generations.set(relationship.personId, sharedGeneration);
-        changed = true;
-      }
-      if (secondGeneration !== sharedGeneration) {
-        generations.set(relationship.relatedPersonId, sharedGeneration);
-        changed = true;
-      }
-    });
-
-    if (!changed) break;
-  }
-
-  const minimumGeneration = Math.min(...generations.values(), 0);
-  if (minimumGeneration > 0) {
-    members.forEach((member) => {
-      generations.set(member.id, (generations.get(member.id) ?? 0) - minimumGeneration);
-    });
-  }
-
-  return generations;
-}
-
-function orderGenerationPeople(
-  people: FamilyMember[],
-  spouseRelationships: FamilyRelationship[],
-) {
-  const peopleById = new Map(people.map((person) => [person.id, person]));
-  const partnersById = new Map<number, FamilyMember[]>();
-
-  spouseRelationships.forEach((relationship) => {
-    const firstPerson = peopleById.get(relationship.personId);
-    const secondPerson = peopleById.get(relationship.relatedPersonId);
-    if (!firstPerson || !secondPerson) return;
-
-    partnersById.set(relationship.personId, [
-      ...(partnersById.get(relationship.personId) ?? []),
-      secondPerson,
-    ]);
-    partnersById.set(relationship.relatedPersonId, [
-      ...(partnersById.get(relationship.relatedPersonId) ?? []),
-      firstPerson,
-    ]);
-  });
-
-  const orderedPeople: FamilyMember[] = [];
-  const visited = new Set<number>();
-
-  [...people].sort(compareFamilyMembers).forEach((person) => {
-    if (visited.has(person.id)) return;
-    orderedPeople.push(person);
-    visited.add(person.id);
-
-    (partnersById.get(person.id) ?? [])
-      .sort(compareFamilyMembers)
-      .forEach((partner) => {
-        if (visited.has(partner.id)) return;
-        orderedPeople.push(partner);
-        visited.add(partner.id);
-      });
-  });
-
-  return orderedPeople;
-}
-
-function compareFamilyMembers(left: FamilyMember, right: FamilyMember) {
-  const leftYear = left.birthYear ?? 9999;
-  const rightYear = right.birthYear ?? 9999;
-  if (leftYear !== rightYear) return leftYear - rightYear;
-  return displayName(left).localeCompare(displayName(right), "ja-JP");
 }
 
 type DateDisplayPrecision = "day" | "month" | "year";
